@@ -1,0 +1,196 @@
+# ═══════════════════════════════════════════════════════════════
+# SLAY — GitHub Actions CI/CD Pipeline
+# Triggers on push to main and pull requests
+# Jobs: lint → test → build → deploy (GitHub Pages)
+# ═══════════════════════════════════════════════════════════════
+name: SLAY CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+
+  # ─── Job 1: Lint & Validate ───────────────────────────────────
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Extract JS from HTML and syntax-check
+        run: |
+          python3 - << 'PYEOF'
+          import subprocess, re, sys, tempfile, os
+          content = open('SLAY-v5-complete.html').read()
+          idx = content.rfind('<script>')
+          js  = content[idx+8:content.rfind('</script>')]
+          with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+              f.write(js); fname = f.name
+          r = subprocess.run(['node','--check',fname], capture_output=True, text=True)
+          os.unlink(fname)
+          if r.returncode != 0:
+              print('SYNTAX ERROR:', r.stdout)
+              sys.exit(1)
+          bad = [i for i,c in enumerate(js) if ord(c) in (0x2212,0x2013,0x2014)]
+          if bad:
+              print(f'BAD UNICODE at {len(bad)} positions')
+              sys.exit(1)
+          print(f'JS syntax: CLEAN ({len(js):,} chars)')
+          PYEOF
+
+      - name: Check HTML structure
+        run: |
+          python3 - << 'PYEOF'
+          import re, sys
+          content = open('SLAY-v5-complete.html').read()
+          idx = content.rfind('<script>')
+          js  = content[idx+8:content.rfind('</script>')]
+          js_ids   = set(re.findall(r"getElementById\('([^']+)'\)", js))
+          html_ids = set(re.findall(r'id="([^"]+)"', content))
+          missing  = js_ids - html_ids
+          if missing:
+              print(f'MISSING HTML IDs: {sorted(missing)}')
+              sys.exit(1)
+          screens  = set(re.findall(r'id="(s-[\w-]+)"', content))
+          expected = {'s-load','s-role','s-auth','s-join','s-wait','s-dash','s-admin','s-wiz','s-plan','s-cv-plan','s-kicked'}
+          diff     = expected - screens
+          if diff:
+              print(f'MISSING SCREENS: {diff}')
+              sys.exit(1)
+          print(f'HTML structure: OK  ({len(js_ids)} IDs, {len(screens)} screens)')
+          PYEOF
+
+  # ─── Job 2: Automated Tests ───────────────────────────────────
+  test:
+    name: Automated Tests (24 cases)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run SLAY test suite via headless Node
+        run: |
+          node - << 'NODEEOF'
+          // Minimal DOM shim so the test suite runs in Node
+          global.window     = { addEventListener:()=>{}, removeEventListener:()=>{} };
+          global.document   = {
+            getElementById: ()=>({textContent:'',style:{},classList:{add:()=>{},remove:()=>{},toggle:()=>{},contains:()=>false},innerHTML:''}),
+            querySelectorAll:()=>[], querySelector:()=>null,
+            addEventListener:()=>{}, createElement:()=>({style:{},appendChild:()=>{},click:()=>{}})
+          };
+          global.localStorage = { getItem:()=>null, setItem:()=>{}, removeItem:()=>{} };
+          global.requestAnimationFrame = (fn)=>setImmediate(fn);
+          global.THREE = { WebGLRenderer:function(){return{setPixelRatio:()=>{},setClearColor:()=>{},setSize:()=>{},render:()=>{},dispose:()=>{},shadowMap:{}}}, Scene:function(){return{add:()=>{},fog:null,traverse:()=>{}}}, PerspectiveCamera:function(){return{position:{set:()=>{}},lookAt:()=>{},aspect:1,updateProjectionMatrix:()=>{}}}, AmbientLight:function(){}, DirectionalLight:function(){return{position:{set:()=>{}}}}, PointLight:function(){return{position:{x:0,y:0,z:0}}}, HemisphereLight:function(){}, MeshStandardMaterial:function(){return{clone:()=>({color:{copy:()=>{}},emissive:new global.THREE.Color(),emissiveIntensity:0,dispose:()=>{}})}}, MeshBasicMaterial:function(){return{dispose:()=>{}}}, Mesh:function(){return{position:{set:()=>{},copy:()=>{}},rotation:{x:0,y:0,z:0},traverse:()=>{},add:()=>{},name:'',userData:{}}}, BoxGeometry:function(){return{dispose:()=>{}}}, PlaneGeometry:function(){return{dispose:()=>{}}}, CylinderGeometry:function(){return{dispose:()=>{}}}, SphereGeometry:function(){return{dispose:()=>{}}}, GridHelper:function(){return{material:{transparent:false,opacity:0},position:{y:0}}}, Raycaster:function(){return{setFromCamera:()=>{},ray:{intersectPlane:()=>false},intersectObjects:()=>[]}}, Vector2:function(x,y){return{x,y,set:()=>{}}}, Vector3:function(x,y,z){return{x:x||0,y:y||0,z:z||0,set:()=>{},copy:()=>{},addScaledVector:()=>{},clone:()=>new global.THREE.Vector3()}}, Plane:function(){}, Color:function(c){return{copy:()=>{}}}, Box3:function(){return{setFromObject:()=>({getSize:()=>{},getCenter:()=>{}}),getSize:(v)=>{v.x=1;v.y=1;v.z=1;},getCenter:(v)=>{v.x=0;v.y=0;v.z=0;}}}, FogExp2:function(){}, Fog:function(){}, sRGBEncoding:3001, DoubleSide:2 };
+
+          const fs   = require('fs');
+          const src  = fs.readFileSync('SLAY-v5-complete.html','utf8');
+          const idx  = src.lastIndexOf('<script>');
+          let   code = src.slice(idx+8, src.lastIndexOf('</script>'));
+
+          // Stub browser APIs
+          code = 'const performance={now:()=>Date.now()};\n' + code;
+
+          eval(code);
+
+          // Run tests
+          const results = Tests.run();
+          const pct     = Math.round(results.passed/results.total*100);
+
+          results.tests.forEach(t=>{
+            console.log(`${t.ok ? 'PASS' : 'FAIL'}  [${t.id}] ${t.name}`);
+          });
+
+          console.log(`\nResults: ${results.passed}/${results.total} passed (${pct}%)`);
+
+          if(results.failed > 0){
+            console.error(`FAILED: ${results.failed} tests`);
+            process.exit(1);
+          }
+          NODEEOF
+
+  # ─── Job 3: Build ─────────────────────────────────────────────
+  build:
+    name: Build & Package
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Stamp build metadata into HTML
+        run: |
+          python3 - << 'PYEOF'
+          import re, datetime
+          content = open('SLAY-v5-complete.html').read()
+          sha     = '${{ github.sha }}'[:7]
+          ts      = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+          branch  = '${{ github.ref_name }}'
+          meta    = f'<meta name="slay-build" content="sha={sha} branch={branch} built={ts}">'
+          content = re.sub(r'<meta name="slay-build"[^>]*>', '', content)
+          content = content.replace('<head>', f'<head>\n  {meta}', 1)
+          open('SLAY-v5-complete.html','w').write(content)
+          print(f'Stamped build: {sha} @ {ts}')
+          PYEOF
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: slay-build-${{ github.sha }}
+          path: SLAY-v5-complete.html
+          retention-days: 30
+
+  # ─── Job 4: Deploy to GitHub Pages ────────────────────────────
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: slay-build-${{ github.sha }}
+
+      - name: Prepare Pages directory
+        run: |
+          mkdir -p ./pages
+          cp SLAY-v5-complete.html ./pages/index.html
+          # Create minimal 404 redirect
+          cat > ./pages/404.html << 'HTML'
+          <!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/"></head></html>
+          HTML
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./pages
+          commit_message: 'deploy: ${{ github.sha }}'

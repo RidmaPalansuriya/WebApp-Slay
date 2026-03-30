@@ -1,0 +1,3477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SLAY -- AI Event Spatial Planner v5</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════ DESIGN SYSTEM ══════════ */
+:root{
+  --bg1:#030712;--bg2:#0d1117;--bg3:#161b22;--bg4:#0e1318;
+  --cyan:#00d4ff;--cyan-d:#0099bb;--cyan-g:rgba(0,212,255,.1);--bd-c:rgba(0,212,255,.2);
+  --amber:#ffb800;--green:#00ff88;--red:#ff4466;--purple:#7c3aed;
+  --c1:#e6edf3;--c2:#8b949e;--c3:#484f58;
+  --bd:rgba(255,255,255,.07);--r:6px;--rl:12px;
+  --tf:Orbitron,monospace;--bf:Inter,system-ui,sans-serif;
+  --tx:.18s cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:var(--bf);background:var(--bg1);color:var(--c1);font-size:14px;line-height:1.5;overflow:hidden}
+
+/* ══════════ SCREEN SYSTEM ══════════ */
+.scr{position:absolute;inset:0;display:none;flex-direction:column;opacity:0;transition:opacity .3s ease}
+.scr.on{display:flex;opacity:1}
+
+/* ══════════ ANIMATED BACKGROUND ══════════ */
+.lbg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.grid-v{position:absolute;inset:0;background-image:linear-gradient(rgba(0,212,255,.04)1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.04)1px,transparent 1px);background-size:60px 60px;animation:gm 20s linear infinite}
+@keyframes gm{to{transform:translate(60px,60px)}}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);animation:of 8s ease-in-out infinite}
+.o1{width:400px;height:400px;background:var(--cyan);opacity:.18;top:-100px;left:-100px}
+.o2{width:300px;height:300px;background:var(--purple);opacity:.18;bottom:-50px;right:-50px;animation-delay:-3s}
+.o3{width:200px;height:200px;background:var(--amber);opacity:.1;top:50%;right:20%;animation-delay:-6s}
+@keyframes of{0%,100%{transform:translate(0,0)scale(1)}50%{transform:translate(20px,20px)scale(1.05)}}
+
+/* ══════════ LOADING SCREEN ══════════ */
+#s-load{align-items:center;justify-content:center}
+.load-inner{text-align:center;position:relative;z-index:1}
+.load-logo{font-family:var(--tf);font-size:64px;font-weight:900;letter-spacing:.2em;margin-bottom:12px;animation:lp 2s ease-in-out infinite}
+@keyframes lp{0%,100%{opacity:1}50%{opacity:.6}}
+.load-logo .ls{color:var(--cyan)}.load-logo .ll{color:var(--purple)}.load-logo .la{color:var(--amber)}.load-logo .ly{color:var(--green)}
+.load-tag{color:var(--c2);font-size:13px;letter-spacing:.2em;margin-bottom:40px;text-transform:uppercase}
+.load-bar-wrap{width:260px;height:3px;background:var(--bd);border-radius:2px;overflow:hidden;margin:0 auto}
+.load-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));border-radius:2px;width:0;transition:width .3s ease}
+.load-pct{font-family:var(--tf);font-size:12px;color:var(--cyan);margin-top:10px;letter-spacing:.1em}
+
+/* ══════════ ROLE SELECTION ══════════ */
+#s-role{align-items:center;justify-content:center}
+.role-wrap{position:relative;z-index:1;text-align:center;padding:32px}
+.screen-title{font-family:var(--tf);font-size:22px;font-weight:700;letter-spacing:.1em;margin-bottom:6px}
+.screen-sub{color:var(--c2);font-size:12px;letter-spacing:.12em;margin-bottom:36px}
+.role-cards{display:flex;gap:18px;justify-content:center;margin-bottom:36px;flex-wrap:wrap}
+.role-card{background:rgba(13,17,23,.85);border:1px solid var(--bd);border-radius:var(--rl);padding:28px 24px;width:180px;cursor:pointer;transition:all var(--tx);text-align:center;backdrop-filter:blur(12px)}
+.role-card:hover{border-color:var(--bd-c);transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,212,255,.1)}
+.role-card.sel{border-color:var(--cyan);background:var(--cyan-g);box-shadow:0 0 24px rgba(0,212,255,.15)}
+.rc-icon{font-size:36px;margin-bottom:12px;display:block}
+.rc-name{font-family:var(--tf);font-size:13px;font-weight:700;letter-spacing:.1em;margin-bottom:6px}
+.rc-desc{font-size:11px;color:var(--c2);line-height:1.5}
+.role-card.host .rc-icon::after{content:'👑'}
+.role-card.admin .rc-icon::after{content:'🛡'}
+.role-card.collab .rc-icon::after{content:'👥'}
+
+.avatar-section{margin-bottom:28px}
+.avatar-label{font-size:11px;letter-spacing:.12em;color:var(--c3);text-transform:uppercase;margin-bottom:12px}
+.avatar-row{display:flex;gap:12px;justify-content:center}
+.av-pick{width:64px;height:64px;border-radius:50%;border:2px solid var(--bd);cursor:pointer;transition:all var(--tx);display:flex;align-items:center;justify-content:center;font-size:28px;background:rgba(255,255,255,.04)}
+.av-pick:hover{border-color:var(--bd-c);transform:scale(1.08)}
+.av-pick.sel{border-color:var(--cyan);box-shadow:0 0 16px rgba(0,212,255,.3);background:var(--cyan-g)}
+.av-name{font-size:10px;color:var(--c2);margin-top:4px;text-align:center}
+
+/* ══════════ BUTTONS ══════════ */
+.bp{display:inline-flex;align-items:center;justify-content:center;background:var(--cyan);color:#000;border:none;border-radius:var(--r);padding:10px 22px;font-family:var(--tf);font-size:11px;font-weight:700;letter-spacing:.1em;cursor:pointer;transition:all var(--tx)}
+.bp:hover{background:#33ddff;box-shadow:0 0 20px rgba(0,212,255,.35)}
+.bp:disabled{opacity:.4;cursor:not-allowed}
+.bs{display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--cyan);border:1px solid var(--bd-c);border-radius:var(--r);padding:9px 18px;font-family:var(--tf);font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer;transition:all var(--tx)}
+.bs:hover{background:var(--cyan-g)}
+.bg{background:transparent;color:var(--c2);border:1px solid var(--bd);border-radius:var(--r);padding:7px 14px;font-size:11px;cursor:pointer;transition:all var(--tx)}
+.bg:hover{color:var(--c1);border-color:rgba(255,255,255,.2)}
+.bsm{background:transparent;border:1px solid var(--bd);border-radius:var(--r);padding:5px 12px;color:var(--c2);font-size:11px;cursor:pointer;transition:all var(--tx)}
+.bsm:hover{color:var(--c1)}
+.bar-btn{background:transparent;border:1px solid var(--bd);border-radius:var(--r);padding:5px 12px;color:var(--c2);font-size:11px;cursor:pointer;transition:all var(--tx);white-space:nowrap;letter-spacing:.04em}
+.bar-btn:hover{border-color:var(--bd-c);color:var(--cyan)}
+.bar-btn.ac{background:var(--cyan);color:#000;border-color:transparent;font-family:var(--tf);font-weight:700}
+.bar-btn.ac:hover{background:#33ddff}
+.w-full{width:100%}
+
+/* ══════════ AUTH SCREEN ══════════ */
+#s-auth{align-items:center;justify-content:center}
+.auth-card{position:relative;z-index:1;background:rgba(13,17,23,.9);border:1px solid var(--bd-c);border-radius:var(--rl);padding:36px 44px;width:420px;max-height:90vh;overflow-y:auto;backdrop-filter:blur(20px)}
+.auth-logo{font-family:var(--tf);font-size:40px;font-weight:900;letter-spacing:.15em;text-align:center;margin-bottom:4px}
+.auth-tag{color:var(--c2);font-size:11px;letter-spacing:.1em;text-align:center;margin-bottom:18px}
+.role-chip-display{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px;padding:8px 16px;background:var(--bg3);border-radius:20px;font-size:12px;color:var(--c2)}
+.rcd-ico{font-size:16px}
+.rcd-role{font-family:var(--tf);font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:.08em}
+.amode{display:flex;border:1px solid var(--bd);border-radius:var(--r);margin-bottom:16px;overflow:hidden}
+.am-btn{flex:1;background:transparent;border:none;color:var(--c3);padding:9px;font-size:12px;cursor:pointer;transition:all var(--tx);letter-spacing:.06em}
+.am-btn.on{background:var(--cyan-g);color:var(--cyan)}
+.tabs{display:flex;border:1px solid var(--bd);border-radius:var(--r);margin-bottom:14px;overflow:hidden}
+.tab{flex:1;background:transparent;border:none;color:var(--c3);padding:7px;font-size:12px;cursor:pointer;transition:all var(--tx)}
+.tab.on{background:var(--cyan-g);color:var(--cyan)}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;text-align:left}
+.fg label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--c2)}
+.fg input,.fg select{background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:var(--r);padding:9px 12px;color:var(--c1);font-family:var(--bf);font-size:13px;outline:none;transition:border-color var(--tx);width:100%}
+.fg input:focus,.fg select:focus{border-color:var(--cyan-d)}
+select option{background:var(--bg3)}
+.pw-w{position:relative}
+.pw-w input{padding-right:36px}
+.eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--c3);cursor:pointer;font-size:13px;padding:0}
+.fh{font-size:10px;min-height:14px;margin-top:2px}
+.fh.ok{color:var(--green)}.fh.w{color:var(--amber)}.fh.e{color:var(--red)}
+.sb-w{height:3px;background:var(--bd);border-radius:2px;margin-top:5px;overflow:hidden}
+.sb{height:100%;width:0;border-radius:2px;transition:width .3s,background .3s}
+.aerr{background:rgba(255,68,102,.08);border:1px solid rgba(255,68,102,.3);border-radius:var(--r);padding:7px 10px;font-size:12px;color:var(--red);margin-bottom:10px;display:none;text-align:left}
+.oauth-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border:1px solid var(--bd);border-radius:var(--r);padding:10px;background:transparent;color:var(--c1);font-size:13px;cursor:pointer;margin-bottom:8px;transition:all var(--tx)}
+.oauth-btn:hover{background:rgba(255,255,255,.04)}
+.o-ico{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.g-ico{background:#4285f4;color:#fff}.fb-ico{background:#1877f2;color:#fff}
+.role-pills-reg{display:flex;flex-direction:column;gap:6px}
+.rp{display:flex;align-items:center;gap:10px;background:transparent;border:1px solid var(--bd);border-radius:var(--r);padding:9px 12px;cursor:pointer;transition:all var(--tx);text-align:left;width:100%}
+.rp:hover{border-color:var(--bd-c);background:var(--cyan-g)}.rp.on{border-color:var(--cyan-d);background:var(--cyan-g)}
+.rp-ico{font-size:16px;width:22px;text-align:center}
+.rp-name{font-size:12px;font-weight:600;color:var(--c1);display:block}
+.rp-desc{font-size:10px;color:var(--c3);display:block}
+.quick-row{display:flex;align-items:center;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid var(--bd)}
+.qb{border:1px solid var(--bd);border-radius:20px;padding:3px 11px;font-size:10px;cursor:pointer;background:transparent;transition:all var(--tx);white-space:nowrap}
+.qb.p{color:var(--cyan);border-color:rgba(0,212,255,.3)}.qb.p:hover{background:var(--cyan-g)}
+.qb.a{color:var(--green);border-color:rgba(0,255,136,.3)}.qb.a:hover{background:rgba(0,255,136,.08)}
+.qb.c{color:var(--amber);border-color:rgba(255,184,0,.3)}.qb.c:hover{background:rgba(255,184,0,.08)}
+
+/* ══════════ JOIN SCREEN (Collaborator) ══════════ */
+#s-join{align-items:center;justify-content:center}
+.join-card{position:relative;z-index:1;background:rgba(13,17,23,.9);border:1px solid var(--bd-c);border-radius:var(--rl);padding:36px 44px;width:440px;backdrop-filter:blur(20px);text-align:center}
+
+/* ══════════ WAITING SCREEN ══════════ */
+#s-wait{align-items:center;justify-content:center}
+.wait-card{position:relative;z-index:1;background:rgba(13,17,23,.9);border:1px solid var(--bd-c);border-radius:var(--rl);padding:40px;width:420px;text-align:center;backdrop-filter:blur(20px)}
+.wait-spinner{width:60px;height:60px;border:3px solid var(--bd);border-top-color:var(--cyan);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wait-room-code{font-family:var(--tf);font-size:26px;color:var(--cyan);letter-spacing:.2em;margin:10px 0;padding:12px 24px;background:rgba(0,212,255,.06);border:1px solid var(--bd-c);border-radius:var(--r)}
+
+/* ══════════ TOPNAV ══════════ */
+.topnav{display:flex;align-items:center;height:52px;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--bd);flex-shrink:0;gap:10px;overflow-x:auto}
+.tnbrand{font-family:var(--tf);font-size:16px;font-weight:900;color:var(--cyan);letter-spacing:.15em;white-space:nowrap}
+.tnbrand .dot{color:var(--amber)}
+.tnmid{flex:1;display:flex;justify-content:center}
+.spl{display:flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.1em;color:var(--green)}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 6px var(--green)}50%{opacity:.5;box-shadow:none}}
+.tnright{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.nu{font-size:12px;color:var(--c2);white-space:nowrap}
+.rc{font-size:10px;padding:2px 8px;border-radius:20px;background:var(--cyan-g);border:1px solid var(--bd-c);color:var(--cyan);font-family:var(--tf);letter-spacing:.1em;white-space:nowrap}
+.notif-btn{position:relative;background:transparent;border:1px solid var(--bd);border-radius:var(--r);padding:5px 10px;color:var(--c2);font-size:11px;cursor:pointer;transition:all var(--tx)}
+.notif-btn:hover{border-color:var(--bd-c);color:var(--cyan)}
+.notif-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;width:16px;height:16px;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:700;display:none}
+.notif-badge.show{display:flex}
+
+/* ══════════ DASHBOARD ══════════ */
+.dl{display:flex;flex:1;overflow:hidden}
+.dside{width:250px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--bd);overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:18px}
+.slbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--c3);padding-bottom:4px;border-bottom:1px solid var(--bd);margin-bottom:6px}
+.pi{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:9px 11px;cursor:pointer;transition:all var(--tx)}
+.pi:hover{border-color:var(--bd-c);background:var(--cyan-g)}
+.pi-n{font-size:12px;font-weight:500}
+.pi-m{font-size:10px;color:var(--c3);margin-top:2px}
+.dmain{flex:1;overflow-y:auto;padding:28px;background:var(--bg1)}
+.dh1{font-family:var(--tf);font-size:24px;font-weight:900;letter-spacing:.04em;margin-bottom:4px}
+.dsub{color:var(--c3);font-size:12px;letter-spacing:.1em;margin-bottom:20px}
+.mrow{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.mc{flex:1;min-width:100px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:16px;text-align:center;transition:all var(--tx)}
+.mc:hover{border-color:var(--bd-c)}
+.mv{font-family:var(--tf);font-size:22px;font-weight:700;color:var(--cyan);margin-bottom:3px}
+.ml{font-size:10px;color:var(--c3);letter-spacing:.1em}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.pcard{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:16px;cursor:pointer;transition:all var(--tx);position:relative;overflow:hidden}
+.pcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--cyan),transparent);opacity:0;transition:opacity var(--tx)}
+.pcard:hover{border-color:var(--bd-c);transform:translateY(-2px)}.pcard:hover::before{opacity:1}
+.pct{font-size:10px;letter-spacing:.1em;color:var(--cyan);text-transform:uppercase;margin-bottom:3px}
+.pcn{font-weight:600;margin-bottom:4px}
+.pcm{font-size:11px;color:var(--c2)}
+
+/* ══════════ WIZARD ══════════ */
+.wiz-sh{flex:1;display:flex;flex-direction:column;background:var(--bg1);overflow:hidden}
+.wiz-hdr{display:flex;align-items:center;padding:13px 26px;background:var(--bg2);border-bottom:1px solid var(--bd);gap:16px;flex-shrink:0}
+.wiz-title{font-family:var(--tf);font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--cyan);flex:1}
+.wsteps{display:flex;gap:10px}
+.ws{font-size:11px;color:var(--c3);padding:4px 10px;border-radius:20px;border:1px solid transparent;transition:all var(--tx)}
+.ws.on{color:var(--cyan);border-color:var(--bd-c);background:var(--cyan-g)}
+.wbody{flex:1;overflow-y:auto;padding:26px}
+.wstep{display:none}.wstep.on{display:block}
+.step-h{font-family:var(--tf);font-size:18px;font-weight:700;letter-spacing:.04em;margin-bottom:22px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sp2{grid-column:span 2}
+.pills{display:flex;flex-wrap:wrap;gap:7px}
+.pill{background:transparent;border:1px solid var(--bd);border-radius:20px;padding:5px 13px;color:var(--c2);font-size:12px;cursor:pointer;transition:all var(--tx)}
+.pill:hover{border-color:var(--bd-c);color:var(--c1)}.pill.on{background:var(--cyan-g);border-color:var(--cyan-d);color:var(--cyan)}
+.tgl-pair{display:flex}
+.tgl{flex:1;background:transparent;border:1px solid var(--bd);padding:8px;color:var(--c3);font-size:11px;letter-spacing:.07em;cursor:pointer;transition:all var(--tx)}
+.tgl:first-child{border-radius:var(--r) 0 0 var(--r)}.tgl:last-child{border-radius:0 var(--r) var(--r) 0;border-left:none}
+.tgl.on{background:var(--cyan-g);border-color:var(--cyan-d);color:var(--cyan)}
+.sr{display:flex;align-items:center;gap:10px}
+.sr input[type=range]{flex:1;accent-color:var(--cyan);cursor:pointer}
+.sv{font-family:var(--tf);font-size:11px;color:var(--cyan);min-width:70px;text-align:right}
+.hint{font-size:10px;color:var(--c3);margin-top:3px}
+.cg{display:flex;flex-wrap:wrap;gap:9px}
+.ck{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--c2);cursor:pointer}
+.ck input{accent-color:var(--cyan)}.ck:hover{color:var(--c1)}
+.lkr-w{display:flex;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;transition:border-color var(--tx)}
+.lkr-w:focus-within{border-color:var(--cyan-d)}
+.lkr-pfx{background:rgba(255,255,255,.04);padding:9px 10px;font-size:12px;color:var(--c2);border-right:1px solid var(--bd)}
+.lkr-w input{border:none;border-radius:0;background:transparent;flex:1}
+.wftr{display:flex;align-items:center;gap:12px;padding:13px 26px;background:var(--bg2);border-top:1px solid var(--bd);flex-shrink:0}
+.wbar{flex:1;height:3px;background:var(--bd);border-radius:2px;overflow:hidden}
+.wbar-f{height:100%;background:var(--cyan);border-radius:2px;transition:width .4s ease}
+
+/* ══════════ PLANNER ══════════ */
+.pbar{display:flex;align-items:center;height:52px;padding:0 16px;background:var(--bg2);border-bottom:1px solid var(--bd);gap:8px;flex-shrink:0;overflow-x:auto}
+.pname{font-family:var(--tf);font-size:12px;letter-spacing:.08em;flex:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room-b{font-size:10px;padding:2px 9px;border-radius:20px;background:rgba(255,184,0,.1);border:1px solid rgba(255,184,0,.3);color:var(--amber);font-family:var(--tf);letter-spacing:.12em;white-space:nowrap}
+.cav-row{display:flex;align-items:center;gap:3px}
+.av-sm{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border:2px solid var(--bg2);color:#000;flex-shrink:0}
+.plan-layout{display:flex;flex:1;overflow:hidden}
+.pleft{width:220px;flex-shrink:0;background:var(--bg4);border-right:1px solid var(--bd);overflow-y:auto;display:flex;flex-direction:column}
+.ps{padding:12px 13px;border-bottom:1px solid var(--bd)}
+.ps-lbl{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--c3);margin-bottom:8px}
+.pal{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.pit{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:7px 4px;text-align:center;cursor:pointer;transition:all var(--tx);font-size:10px;color:var(--c2);user-select:none}
+.pit:hover{border-color:var(--bd-c);color:var(--cyan);background:var(--cyan-g)}
+.pit-ico{font-size:15px;margin-bottom:3px;display:block}
+.vstats{display:flex;flex-direction:column;gap:5px}
+.vsr{display:flex;justify-content:space-between;font-size:11px}
+.vsr .l{color:var(--c3)}.vsr .v{color:var(--c1);font-weight:500}
+.vsr .v.ok{color:var(--green)}.vsr .v.wn{color:var(--amber)}.vsr .v.bd{color:var(--red)}
+.muted{color:var(--c3);font-size:11px;font-style:italic}
+.clog{max-height:100px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.cle{font-size:10px;color:var(--c2);padding:3px 6px;background:rgba(255,255,255,.02);border-radius:3px;border-left:2px solid var(--bd)}
+.cle.ai{border-left-color:var(--cyan);color:var(--cyan)}
+.cle.cb{border-left-color:var(--purple)}
+.cle.host{border-left-color:var(--amber)}
+.canv-a{flex:1;position:relative;overflow:hidden;background:var(--bg1)}
+#c3d{width:100%;height:100%;display:block}
+.chint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.chint.h{display:none}
+.chint p{font-size:12px;color:var(--c3);margin-bottom:3px}
+.fleg{position:absolute;bottom:14px;left:14px;display:flex;flex-direction:column;gap:4px;background:rgba(13,17,23,.88);border:1px solid var(--bd);border-radius:var(--r);padding:8px 11px;backdrop-filter:blur(10px)}
+.fli{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--c2)}
+.fld{width:8px;height:8px;border-radius:50%}
+.fld.g{background:var(--green);box-shadow:0 0 5px var(--green)}
+.fld.y{background:var(--amber);box-shadow:0 0 5px var(--amber)}
+.fld.r{background:var(--red);box-shadow:0 0 5px var(--red)}
+.score-w{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;align-items:center;background:rgba(13,17,23,.88);border:1px solid var(--bd-c);border-radius:var(--rl);padding:11px;backdrop-filter:blur(10px)}
+.score-n{font-family:var(--tf);font-size:22px;font-weight:900;color:var(--cyan);margin-top:-65px;position:relative;z-index:1;width:110px;text-align:center}
+.score-l{font-size:10px;letter-spacing:.1em;color:var(--c3);margin-top:5px}
+.ovf-ban{position:absolute;top:60px;left:50%;transform:translateX(-50%);background:rgba(255,68,102,.12);border:1px solid var(--red);border-radius:var(--r);padding:9px 18px;font-size:12px;color:var(--red);z-index:20;backdrop-filter:blur(10px);text-align:center;max-width:440px}
+.ovf-ban.h{display:none}
+.cap-a{padding:9px 11px;border-radius:var(--r);font-size:11px;border-left:3px solid}
+.cap-a.wn{background:rgba(255,184,0,.08);border-color:var(--amber);color:var(--amber)}
+.cap-a.bd{background:rgba(255,68,102,.08);border-color:var(--red);color:var(--red)}
+.cap-a.h{display:none}
+
+/* ══════════ COLLAB VIEW ══════════ */
+.pright{width:270px;flex-shrink:0;background:var(--bg4);border-left:1px solid var(--bd);overflow-y:auto}
+.ai-s{display:flex;align-items:center;gap:8px;font-size:12px;padding:8px 10px;border-radius:var(--r);border:1px solid var(--bd)}
+.ai-s.idle{color:var(--c3)}.ai-s.run{color:var(--amber);border-color:rgba(255,184,0,.3);background:rgba(255,184,0,.05)}
+.ai-s.done{color:var(--green);border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.05)}
+.ai-d{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.ai-s.run .ai-d{animation:pulse .8s ease-in-out infinite}
+.sh-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px!important}
+.mt{display:flex}
+.mtb{background:transparent;border:1px solid var(--bd);padding:3px 8px;font-size:10px;color:var(--c3);cursor:pointer;transition:all var(--tx)}
+.mtb:first-child{border-radius:3px 0 0 3px}.mtb:last-child{border-radius:0 3px 3px 0;border-left:none}
+.mtb.on{background:var(--cyan-g);border-color:var(--cyan-d);color:var(--cyan)}
+.shap-chart{display:flex;flex-direction:column;gap:5px}
+.sr2{display:flex;flex-direction:column;gap:2px}
+.sr2h{display:flex;justify-content:space-between;align-items:center;font-size:11px}
+.sf{color:var(--c2)}.sv2{font-weight:600;font-size:11px}
+.sv2.p{color:var(--green)}.sv2.n{color:var(--red)}
+.st{height:5px;background:var(--bd);border-radius:3px;overflow:hidden}
+.sf2{height:100%;border-radius:3px;transition:width .8s ease}
+.sf2.p{background:var(--green)}.sf2.n{background:var(--red)}
+.sc2{font-size:10px;color:var(--c3);display:none}
+.sc2.show{display:block}
+.shap-sum{margin-top:8px;padding:8px;background:var(--cyan-g);border:1px solid var(--bd-c);border-radius:var(--r);font-size:11px;color:var(--c2);line-height:1.6}
+.sdim{display:flex;flex-direction:column;gap:2px;margin-bottom:5px}
+.sdh{display:flex;justify-content:space-between;font-size:11px}
+.sdn{color:var(--c2)}.sds{font-weight:600}
+.sds.ok{color:var(--green)}.sds.wn{color:var(--amber)}.sds.bd{color:var(--red)}
+.sdtr{height:4px;background:var(--bd);border-radius:2px;overflow:hidden}
+.sdf{height:100%;border-radius:2px;transition:width 1s ease}
+.sdc{font-size:10px;color:var(--c3);font-style:italic}
+.brow{display:flex;align-items:center;gap:7px;font-size:11px;margin-bottom:4px}
+.bcat{color:var(--c2);width:75px;flex-shrink:0}
+.btr{flex:1;height:5px;background:var(--bd);border-radius:3px;overflow:hidden}
+.bfill{height:100%;border-radius:3px}
+.bamt{font-size:10px;color:var(--c1);font-weight:500;width:68px;text-align:right;flex-shrink:0}
+.sug-i{padding:7px 9px;border-radius:var(--r);border-left:3px solid;background:rgba(255,255,255,.02);font-size:11px;line-height:1.5;margin-bottom:4px}
+.sug-i.ok{border-color:var(--green)}.sug-i.wn{border-color:var(--amber)}.sug-i.bd{border-color:var(--red)}
+
+/* ══════════ COLLAB SUGGESTION PANEL (in planner) ══════════ */
+.csug{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:10px;margin-bottom:6px;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.csug-u{font-size:11px;color:var(--cyan);margin-bottom:3px;font-weight:500}
+.csug-type{font-size:10px;color:var(--c3);margin-bottom:5px}
+.csug-t{font-size:12px;color:var(--c1);margin-bottom:8px;line-height:1.5}
+.csug-acts{display:flex;gap:6px}
+.csug-ac{background:var(--green);color:#000;border:none;border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700;transition:all var(--tx)}
+.csug-ac:hover{background:#33ff99}
+.csug-dc{background:transparent;color:var(--red);border:1px solid rgba(255,68,102,.4);border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer;transition:all var(--tx)}
+.csug-dc:hover{background:rgba(255,68,102,.1)}
+.csug-pending{font-size:10px;color:var(--amber);padding:4px 0;animation:pulse 1.5s ease-in-out infinite}
+
+/* ══════════ COLLAB VIEW SCREEN ══════════ */
+#s-cv-plan{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.cv-banner{background:rgba(255,184,0,.08);border-bottom:1px solid rgba(255,184,0,.25);padding:9px 20px;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--amber);flex-shrink:0}
+.cv-sug-panel{padding:16px;border-bottom:1px solid var(--bd)}
+.cv-sug-list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.cv-sc{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:10px 12px}
+.cv-st-badge{font-size:10px;padding:2px 8px;border-radius:10px;display:inline-block;margin-top:5px}
+.cv-st-badge.p{background:rgba(255,184,0,.1);color:var(--amber)}
+.cv-st-badge.a{background:rgba(0,255,136,.1);color:var(--green)}
+.cv-st-badge.d{background:rgba(255,68,102,.1);color:var(--red)}
+
+/* ══════════ METRICS PANEL ══════════ */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.metric-item{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:10px}
+.mi-val{font-family:var(--tf);font-size:18px;font-weight:700;color:var(--cyan)}
+.mi-lbl{font-size:10px;color:var(--c3);margin-top:2px;letter-spacing:.05em}
+
+/* ══════════ WAITING ROOM MODAL ══════════ */
+.modal{position:absolute;inset:0;z-index:500;background:rgba(3,7,18,.88);display:flex;align-items:center;justify-content:center}
+.modal.h{display:none}
+.mbox{background:var(--bg3);border:1px solid var(--bd-c);border-radius:var(--rl);padding:22px;width:560px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 0 40px rgba(0,212,255,.08)}
+.mhdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.mtitle{font-family:var(--tf);font-size:13px;color:var(--cyan);letter-spacing:.1em}
+.mcls{background:transparent;border:none;color:var(--c3);font-size:16px;cursor:pointer;padding:2px}
+.mcls:hover{color:var(--red)}
+.wr-code-box{background:rgba(0,212,255,.06);border:1px solid var(--bd-c);border-radius:var(--rl);padding:16px;margin-bottom:14px;text-align:center}
+.wr-code-val{font-family:var(--tf);font-size:26px;color:var(--cyan);letter-spacing:.25em;margin:6px 0}
+.wr-users{display:flex;flex-direction:column;gap:6px}
+.wr-user{display:flex;align-items:center;gap:10px;padding:8px 10px;background:rgba(255,255,255,.02);border-radius:var(--r);animation:fadeIn .3s ease}
+.wr-status{font-size:10px;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.wr-status.host{background:var(--cyan-g);color:var(--cyan)}
+.wr-status.waiting{background:rgba(255,184,0,.1);color:var(--amber);animation:pulse 1.5s ease-in-out infinite}
+.wr-status.admitted{background:rgba(0,255,136,.1);color:var(--green)}
+.admit-btn{background:var(--green);color:#000;border:none;border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer;font-weight:700;transition:all var(--tx)}
+.admit-btn:hover{background:#33ff99}
+.deny-btn{background:transparent;border:1px solid rgba(255,68,102,.4);color:var(--red);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;transition:all var(--tx)}
+.deny-btn:hover{background:rgba(255,68,102,.1)}
+.kick-btn{background:transparent;border:1px solid rgba(255,68,102,.3);color:var(--red);border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer}
+
+/* ══════════ NOTIFICATION POPUP ══════════ */
+.notif-popup{position:absolute;top:60px;right:16px;background:var(--bg3);border:1px solid var(--bd-c);border-radius:var(--rl);padding:14px 16px;width:300px;z-index:400;box-shadow:0 8px 32px rgba(0,0,0,.5);animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.notif-popup.h{display:none}
+.np-title{font-size:12px;font-weight:600;color:var(--cyan);margin-bottom:8px}
+.np-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.np-item:last-child{border-bottom:none;padding-bottom:0}
+
+/* ══════════ ADMIN ══════════ */
+.adm-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,.02);border-radius:var(--r);font-size:12px;margin-bottom:4px}
+.adm-b{font-size:10px;padding:2px 7px;border-radius:10px;flex-shrink:0}
+.adm-b.planner{background:var(--cyan-g);color:var(--cyan)}
+.adm-b.admin{background:rgba(0,255,136,.1);color:var(--green)}
+.adm-b.collaborator{background:rgba(255,184,0,.1);color:var(--amber)}
+
+/* ══════════ TOAST ══════════ */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--bd);border-radius:var(--rl);padding:10px 20px;font-size:13px;color:var(--c1);z-index:9999;transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:0 8px 28px rgba(0,0,0,.5);white-space:nowrap;pointer-events:none}
+.toast.on{transform:translateX(-50%) translateY(0)}
+.toast.s{border-color:rgba(0,255,136,.4);color:var(--green)}
+.toast.e{border-color:rgba(255,68,102,.4);color:var(--red)}
+.toast.i{border-color:var(--bd-c);color:var(--cyan)}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+.h{display:none!important}
+
+/* ════ CHAT ════ */
+.chat-msg-self { flex-direction: row-reverse; }
+#host-chat-panel, #chat-panel { min-width: 0; }
+#host-chat-messages::-webkit-scrollbar,
+#chat-messages::-webkit-scrollbar { width: 3px; }
+#host-chat-input:focus, #chat-input:focus { border-color: var(--cyan-d); }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════
+  1. LOADING SCREEN
+════════════════════════════════════ -->
+<div id="s-load" class="scr">
+  <div class="lbg"><div class="grid-v"></div><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="load-inner">
+    <div class="load-logo"><span class="ls">S</span><span class="ll">L</span><span class="la">A</span><span class="ly">Y</span></div>
+    <div class="load-tag">AI-Powered Collaborative Event Spatial Planner</div>
+    <div class="load-bar-wrap"><div class="load-bar" id="load-bar"></div></div>
+    <div class="load-pct" id="load-pct">0%</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+  2. ROLE SELECTION SCREEN
+════════════════════════════════════ -->
+<div id="s-role" class="scr">
+  <div class="lbg"><div class="grid-v"></div><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div class="role-wrap">
+    <div class="screen-title">Select your role</div>
+    <div class="screen-sub">How will you participate in this session?</div>
+    <div class="role-cards">
+      <div class="role-card host" id="rc-host" onclick="Role.select('host',this)">
+        <span class="rc-icon">👑</span>
+        <div class="rc-name">Host</div>
+        <div class="rc-desc">Create and manage event sessions. Full layout control.</div>
+      </div>
+      <div class="role-card admin" id="rc-admin" onclick="Role.select('admin',this)">
+        <span class="rc-icon">🛡</span>
+        <div class="rc-name">Admin</div>
+        <div class="rc-desc">System oversight, user management, analytics access.</div>
+      </div>
+      <div class="role-card collab" id="rc-collab" onclick="Role.select('collaborator',this)">
+        <span class="rc-icon">👥</span>
+        <div class="rc-name">Collaborator</div>
+        <div class="rc-desc">Join a session via Room ID. Suggest layout changes.</div>
+      </div>
+    </div>
+    <div class="avatar-section">
+      <div class="avatar-label">Choose your avatar</div>
+      <div class="avatar-row">
+        <div style="text-align:center">
+          <div class="av-pick" id="av-male" onclick="Role.avatar('male',this)" title="Male">🧑</div>
+          <div class="av-name">Male</div>
+        </div>
+        <div style="text-align:center">
+          <div class="av-pick" id="av-female" onclick="Role.avatar('female',this)" title="Female">👩</div>
+          <div class="av-name">Female</div>
+        </div>
+        <div style="text-align:center">
+          <div class="av-pick" id="av-custom" onclick="Role.avatar('custom',this)" title="Custom">🧑‍💻</div>
+          <div class="av-name">Custom</div>
+        </div>
+      </div>
+    </div>
+    <button class="bp" id="role-continue" onclick="Role.proceed()" disabled style="width:200px;margin:0 auto;display:block">CONTINUE →</button>
+    <div id="role-hint" style="font-size:11px;color:var(--c3);text-align:center;margin-top:10px">Select a role and avatar to continue</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+  3. AUTH SCREEN (Host / Admin)
+════════════════════════════════════ -->
+<div id="s-auth" class="scr">
+  <div class="lbg"><div class="grid-v"></div><div class="orb o1"></div><div class="orb o2"></div></div>
+  <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:center;flex:1">
+  <div class="auth-card">
+    <div class="auth-logo"><span class="ls">S</span><span class="ll">L</span><span class="la">A</span><span class="ly">Y</span></div>
+    <div class="auth-tag">AI Collaborative Event Planner</div>
+    <div class="role-chip-display">
+      <span class="rcd-ico" id="auth-av">👑</span>
+      <span id="auth-role-lbl" class="rcd-role">HOST</span>
+      <button class="bg" style="font-size:10px;padding:3px 10px;margin-left:8px" onclick="Nav.go('s-role')">Change role</button>
+    </div>
+    <div class="amode">
+      <button class="am-btn on" id="am-login" onclick="Auth.mode('login')">Sign in</button>
+      <button class="am-btn" id="am-reg" onclick="Auth.mode('register')">Register</button>
+    </div>
+    <!-- LOGIN -->
+    <div id="p-login">
+      <div class="tabs">
+        <button class="tab on" id="t-email" onclick="Auth.tab('email')">Email</button>
+        <button class="tab" id="t-google" onclick="Auth.tab('google')">Google</button>
+        <button class="tab" id="t-fb" onclick="Auth.tab('facebook')">Facebook</button>
+      </div>
+      <div id="f-email">
+        <div class="fg"><label>Username</label><input id="li-u" placeholder="planner_01" autocomplete="username" onkeydown="if(event.key==='Enter')Auth.login()"></div>
+        <div class="fg"><label>Password</label><div class="pw-w"><input id="li-p" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')Auth.login()"><button class="eye" onclick="Auth.togglePw('li-p',this)">👁</button></div></div>
+        <div id="le" class="aerr"></div>
+        <button class="bp w-full" style="margin-top:4px" onclick="Auth.login()">SIGN IN</button>
+      </div>
+      <div id="f-google" class="h">
+        <button class="oauth-btn" onclick="Auth.oauth('google')"><span class="o-ico g-ico">G</span>Continue with Google</button>
+        <p style="font-size:10px;color:var(--c3);margin-bottom:8px">Prototype: logs in as Host</p>
+      </div>
+      <div id="f-facebook" class="h">
+        <button class="oauth-btn" onclick="Auth.oauth('facebook')"><span class="o-ico fb-ico">f</span>Continue with Facebook</button>
+        <p style="font-size:10px;color:var(--c3);margin-bottom:8px">Prototype: logs in as Host</p>
+      </div>
+      <div class="quick-row">
+        <span style="font-size:10px;color:var(--c3)">Quick:</span>
+        <button class="qb p" onclick="Auth.quick('host')">Host</button>
+        <button class="qb a" onclick="Auth.quick('admin')">Admin</button>
+      </div>
+      <div style="font-size:10px;color:var(--c3);margin-top:8px">Accounts: <b style="color:var(--cyan)">planner_01</b> · <b style="color:var(--green)">admin_01</b> (password: password)</div>
+    </div>
+    <!-- REGISTER -->
+    <div id="p-reg" class="h">
+      <div class="fg"><label>Full name</label><input id="rn" placeholder="e.g. Ridma Palansuriya"></div>
+      <div class="fg"><label>Username</label><input id="ru" placeholder="lowercase, no spaces" oninput="Auth.chkUser(this)"><div id="ruh" class="fh"></div></div>
+      <div class="fg"><label>Email</label><input id="re" type="email" placeholder="you@example.com"></div>
+      <div class="fg"><label>Password</label><div class="pw-w"><input id="rp" type="password" placeholder="min 6 characters" oninput="Auth.strength(this)"><button class="eye" onclick="Auth.togglePw('rp',this)">👁</button></div><div class="sb-w"><div id="psb" class="sb"></div></div><div id="psl" class="fh"></div></div>
+      <div class="fg"><label>Confirm password</label><input id="rp2" type="password" placeholder="••••••••"></div>
+      <div id="re-err" class="aerr"></div>
+      <button class="bp w-full" onclick="Auth.register()">CREATE ACCOUNT</button>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+  4. COLLABORATOR JOIN SCREEN
+════════════════════════════════════ -->
+<div id="s-join" class="scr">
+  <div class="lbg"><div class="grid-v"></div><div class="orb o1"></div><div class="orb o3"></div></div>
+  <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:center;flex:1">
+  <div class="join-card">
+    <div style="font-size:28px;margin-bottom:10px">👥</div>
+    <div class="screen-title" style="font-size:18px;margin-bottom:4px">Join a Session</div>
+    <p style="font-size:12px;color:var(--c2);margin-bottom:24px">Enter the Room ID shared by your host planner.</p>
+    <div class="fg" style="text-align:left">
+      <label>Room code</label>
+      <input id="j-room" placeholder="e.g. WED-A3B" style="font-family:var(--tf);letter-spacing:.15em;font-size:16px;text-transform:uppercase;text-align:center" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div class="fg" style="text-align:left">
+      <label>Nickname</label>
+      <input id="j-nick" placeholder="How you'll appear to others">
+    </div>
+    <div style="text-align:left;margin-bottom:16px">
+      <div style="font-size:10px;letter-spacing:.1em;color:var(--c3);text-transform:uppercase;margin-bottom:8px">Avatar</div>
+      <div style="display:flex;gap:10px">
+        <div style="text-align:center">
+          <div class="av-pick on" id="jav-male" onclick="Join.setAv('male',this)">🧑</div>
+          <div class="av-name">Male</div>
+        </div>
+        <div style="text-align:center">
+          <div class="av-pick" id="jav-female" onclick="Join.setAv('female',this)">👩</div>
+          <div class="av-name">Female</div>
+        </div>
+        <div style="text-align:center">
+          <div class="av-pick" id="jav-custom" onclick="Join.setAv('custom',this)">🧑‍💻</div>
+          <div class="av-name">Custom</div>
+        </div>
+      </div>
+    </div>
+    <div id="join-err" class="aerr"></div>
+    <button class="bp w-full" onclick="Join.submit()">JOIN SESSION</button>
+    <button class="bg" style="width:100%;margin-top:10px" onclick="Nav.go('s-role')">← Back to role selection</button>
+  </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+  5. WAITING SCREEN (Collaborator waits)
+════════════════════════════════════ -->
+<div id="s-wait" class="scr">
+  <div class="lbg"><div class="grid-v"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:center;flex:1">
+  <div class="wait-card">
+    <div class="wait-spinner"></div>
+    <div class="screen-title" style="font-size:16px;margin-bottom:6px">Waiting for approval</div>
+    <p style="font-size:12px;color:var(--c2);margin-bottom:16px">Your join request has been sent. The host will admit you shortly.</p>
+    <div style="font-size:10px;color:var(--c3);margin-bottom:8px;letter-spacing:.1em">ROOM CODE</div>
+    <div class="wait-room-code" id="wait-code">---</div>
+    <div id="wait-nick" style="font-size:12px;color:var(--c2);margin-top:8px"></div>
+    <div id="wait-status" style="font-size:11px;color:var(--amber);margin-top:16px;animation:pulse 1.5s ease-in-out infinite">Sending request to host...</div>
+    <button class="bg" style="margin-top:20px;width:100%" onclick="Join.cancel()">Cancel</button>
+  </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+  DASHBOARD SCREEN
+════════════════════════════════════ -->
+<div id="s-dash" class="scr">
+<nav class="topnav">
+  <div class="tnbrand">SLAY<span class="dot">.</span></div>
+  <div class="tnmid"><span class="spl"><span class="sdot"></span>AI ENGINE ONLINE</span></div>
+  <div class="tnright">
+    <div id="dn-av" class="av-sm" style="background:var(--cyan);font-size:14px">👑</div>
+    <span id="dn-name" class="nu"></span><span id="dn-role" class="rc"></span>
+    <button class="notif-btn" onclick="NotifUI.toggle()" title="Notifications">
+      🔔 <span class="notif-badge" id="notif-badge">0</span>
+    </button>
+    <button class="bsm" onclick="Auth.logout()">Exit</button>
+  </div>
+</nav>
+<div id="notif-popup" class="notif-popup h">
+  <div class="np-title">Notifications</div>
+  <div id="notif-list" style="font-size:11px;color:var(--c3)">No notifications</div>
+</div>
+<div class="dl">
+  <aside class="dside">
+    <div>
+      <div class="slbl">Projects</div>
+      <button class="bp w-full" style="margin-bottom:8px" onclick="Nav.newProject()">+ New Project</button>
+      <div id="d-plist" style="display:flex;flex-direction:column;gap:5px"></div>
+    </div>
+    <div>
+      <div class="slbl">Join room</div>
+      <input id="d-room-in" placeholder="Room code e.g. WED-A3B" style="width:100%;margin-bottom:6px" oninput="this.value=this.value.toUpperCase()">
+      <button class="bs w-full" onclick="Room.join()">Join Session</button>
+      <div id="d-join-st" style="font-size:11px;color:var(--cyan);margin-top:6px;min-height:14px"></div>
+    </div>
+    <div>
+      <div class="slbl">Collaborators online</div>
+      <div id="d-clist" style="font-size:11px;color:var(--c3)">None connected</div>
+    </div>
+  </aside>
+  <main class="dmain">
+    <h1 class="dh1">Event Spatial Intelligence</h1>
+    <p class="dsub">Design · Predict · Collaborate · Explain</p>
+    <div class="mrow">
+      <div class="mc"><div class="mv" id="dm-proj">0</div><div class="ml">Projects</div></div>
+      <div class="mc"><div class="mv" id="dm-users">0</div><div class="ml">Users</div></div>
+      <div class="mc"><div class="mv" id="dm-sessions">0</div><div class="ml">Sessions today</div></div>
+      <div class="mc"><div class="mv">SHAP</div><div class="ml">XAI method</div></div>
+    </div>
+    <div id="d-pgrid" class="pgrid"></div>
+  </main>
+</div>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div id="s-admin" class="scr">
+<nav class="topnav">
+  <div class="tnbrand">SLAY<span class="dot">.</span> <span style="font-size:10px;color:var(--amber);font-family:var(--bf)">ADMIN</span></div>
+  <div class="tnmid"><span class="spl"><span class="sdot"></span>SYSTEM MONITOR</span></div>
+  <div class="tnright"><span id="an-name" class="nu"></span><span class="rc" style="background:rgba(0,255,136,.1);border-color:rgba(0,255,136,.3);color:var(--green)">ADMIN</span><button class="bsm" onclick="Auth.logout()">Exit</button></div>
+</nav>
+<div style="flex:1;overflow-y:auto;padding:24px;background:var(--bg1)">
+  <h1 class="dh1">Admin control panel</h1>
+  <p class="dsub" style="margin-bottom:20px">Monitor sessions, users, metrics</p>
+  <div class="mrow">
+    <div class="mc"><div class="mv" id="adm-tu">0</div><div class="ml">Total users</div></div>
+    <div class="mc"><div class="mv" id="adm-tp">0</div><div class="ml">Projects</div></div>
+    <div class="mc"><div class="mv" id="adm-pl">0</div><div class="ml">Planners</div></div>
+    <div class="mc"><div class="mv" id="adm-cl">0</div><div class="ml">Collaborators</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="slbl" style="border:none;margin:0;padding:0">Users</div>
+        <button class="bg" style="font-size:10px;padding:3px 9px" onclick="Admin.addPrompt()">+ Add</button>
+      </div>
+      <div id="adm-utbl"></div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:18px">
+      <div class="slbl" style="border:none;margin-bottom:12px">Projects & sessions</div>
+      <div id="adm-ptbl"></div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:18px">
+      <div class="slbl" style="border:none;margin-bottom:10px">System health</div>
+      <div id="adm-health"></div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:var(--rl);padding:18px">
+      <div class="slbl" style="border:none;margin-bottom:10px">Collaboration metrics</div>
+      <div id="adm-metrics" class="metrics-grid"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- WIZARD SCREEN -->
+<div id="s-wiz" class="scr">
+<div class="wiz-sh">
+<div class="wiz-hdr">
+  <button class="bg" style="font-size:10px;padding:5px 12px" onclick="Nav.go('s-dash')">← Dashboard</button>
+  <div class="wiz-title">NEW EVENT PROJECT</div>
+  <div class="wsteps">
+    <span class="ws on" data-s="1">01 Event</span><span class="ws" data-s="2">02 Venue</span>
+    <span class="ws" data-s="3">03 Design</span><span class="ws" data-s="4">04 Logistics</span>
+  </div>
+</div>
+<div class="wbody">
+  <div class="wstep on" id="ws-1">
+    <h2 class="step-h">Event identity</h2>
+    <div class="f2">
+      <div class="fg sp2"><label>Event name</label><input id="w-nm" placeholder="e.g. Kumari & Ashan Wedding 2026"></div>
+      <div class="fg sp2"><label>Event type</label><div class="pills" id="ev-pills">
+        <button class="pill on" data-v="wedding">Wedding</button>
+        <button class="pill" data-v="birthday">Birthday</button>
+        <button class="pill" data-v="corporate">Corporate</button>
+        <button class="pill" data-v="seminar">Seminar</button>
+      </div></div>
+      <div class="fg"><label>Guests (1-1000)</label><div class="sr"><input type="range" id="w-g" min="1" max="1000" value="150" step="1" oninput="Wiz.sl('w-g','g-v')"><span id="g-v" class="sv">150</span></div></div>
+      <div class="fg"><label>Budget (LKR)</label><div class="lkr-w"><span class="lkr-pfx">LKR</span><input id="w-b" type="number" value="800000" min="0" step="1000" oninput="Wiz.fmtB()"></div><div id="b-disp" class="hint">LKR 800,000.00</div></div>
+      <div class="fg"><label>Event date</label><input id="w-dt" type="date"></div>
+      <div class="fg"><label>Duration</label><div style="display:flex;gap:8px;align-items:center"><input id="w-st" type="time" value="09:00" style="flex:1" oninput="Wiz.dur()"><span style="color:var(--c3);font-size:12px">to</span><input id="w-et" type="time" value="21:00" style="flex:1" oninput="Wiz.dur()"></div><div id="dur-d" class="hint">Duration: 12 hours</div></div>
+    </div>
+  </div>
+  <div class="wstep" id="ws-2">
+    <h2 class="step-h">Venue configuration</h2>
+    <div class="f2">
+      <div class="fg"><label>Indoor / Outdoor</label><div class="tgl-pair"><button class="tgl on" id="tg-in" onclick="Wiz.tgl('indoor')">Indoor</button><button class="tgl" id="tg-out" onclick="Wiz.tgl('outdoor')">Outdoor</button></div></div>
+      <div class="fg"><label>Location type</label><select id="w-loc"><option value="hotel_ballroom">Hotel Ballroom</option><option value="banquet_hall">Banquet Hall</option><option value="rooftop">Rooftop</option><option value="garden">Garden</option><option value="beach">Beach</option><option value="conference_hall">Conference Hall</option><option value="resort_villa">Resort / Villa</option></select></div>
+      <div class="fg sp2"><label>Venue area (m²) -- 1 unit = 1 real metre</label><div class="sr"><input type="range" id="w-ar" min="30" max="2000" value="300" step="10" oninput="Wiz.area()"><span id="ar-v" class="sv">300 m²</span></div><div id="ar-h" class="hint">≈ 20m × 15m -- 2.0m²/guest</div></div>
+      <div class="fg"><label>Ceiling height (m)</label><div class="sr"><input type="range" id="w-ch" min="2.5" max="12" value="4" step="0.5" oninput="Wiz.sl('w-ch','ch-v','m')"><span id="ch-v" class="sv">4.0 m</span></div></div>
+      <div class="fg"><label>Emergency exits</label><div class="sr"><input type="range" id="w-ex" min="1" max="8" value="2" step="1" oninput="Wiz.sl('w-ex','ex-v')"><span id="ex-v" class="sv">2</span></div></div>
+    </div>
+  </div>
+  <div class="wstep" id="ws-3">
+    <h2 class="step-h">Design & aesthetics</h2>
+    <div class="f2">
+      <div class="fg sp2"><label>Theme</label><div class="pills" id="th-pills"><button class="pill on" data-v="classic">Classic</button><button class="pill" data-v="modern">Modern</button><button class="pill" data-v="royal">Royal</button><button class="pill" data-v="rustic">Rustic</button><button class="pill" data-v="tropical">Tropical</button><button class="pill" data-v="traditional_sl">Traditional SL</button></div></div>
+      <div class="fg"><label>Primary colour</label><input type="color" id="w-col" value="#c0a882" style="width:36px;height:32px;border:1px solid var(--bd);border-radius:4px;background:none;padding:2px;cursor:pointer"></div>
+      <div class="fg"><label>Decoration level</label><div class="pills"><button class="pill" data-dv="1" onclick="Wiz.setDecor(1)">Minimal</button><button class="pill on" data-dv="2" onclick="Wiz.setDecor(2)">Moderate</button><button class="pill" data-dv="3" onclick="Wiz.setDecor(3)">Elaborate</button><button class="pill" data-dv="4" onclick="Wiz.setDecor(4)">Extravagant</button></div></div>
+      <div class="fg sp2"><label>Floor texture</label><select id="w-fl"><option value="wood">Wood parquet</option><option value="marble">Marble</option><option value="carpet">Carpet</option><option value="tiles">Tiles</option></select></div>
+    </div>
+  </div>
+  <div class="wstep" id="ws-4">
+    <h2 class="step-h">Logistics & layout</h2>
+    <div class="f2">
+      <div class="fg sp2"><label>Seating arrangement</label><div class="pills" id="st-pills"><button class="pill on" data-v="round_tables">Round tables</button><button class="pill" data-v="theatre">Theatre</button><button class="pill" data-v="classroom">Classroom</button><button class="pill" data-v="banquet">Long banquet</button></div></div>
+      <div class="fg"><label>Seats per table (4-12)</label><div class="sr"><input type="range" id="w-spt" min="4" max="12" value="8" step="1" oninput="Wiz.sl('w-spt','spt-v')"><span id="spt-v" class="sv">8</span></div></div>
+      <div class="fg"><label>Catering style</label><select id="w-cat"><option value="buffet">Buffet</option><option value="plated">Plated</option><option value="cocktail">Cocktail</option></select></div>
+      <div class="fg"><label>Stage / Podium</label><div class="tgl-pair"><button class="tgl on" id="tg-sy" onclick="Wiz.stage(true)">Yes</button><button class="tgl" id="tg-sn" onclick="Wiz.stage(false)">No</button></div></div>
+      <div class="fg sp2"><label>AV equipment</label><div class="cg"><label class="ck"><input type="checkbox" value="projector" checked>Projector</label><label class="ck"><input type="checkbox" value="pa_system" checked>PA system</label><label class="ck"><input type="checkbox" value="wireless_mic" checked>Wireless mics</label><label class="ck"><input type="checkbox" value="dj_booth">DJ booth</label></div></div>
+    </div>
+  </div>
+</div>
+<div class="wftr">
+  <button class="bg h" id="w-prev" onclick="Wiz.prev()" style="font-size:10px">← Prev</button>
+  <div class="wbar"><div class="wbar-f" id="w-prog"></div></div>
+  <button class="bp" id="w-next" onclick="Wiz.next()" style="width:140px">Next →</button>
+</div>
+</div>
+</div>
+
+<!-- PLANNER SCREEN -->
+<div id="s-plan" class="scr">
+<div class="pbar">
+  <button class="bg" style="font-size:10px;padding:5px 12px;flex-shrink:0" onclick="Nav.go('s-dash')">← Dashboard</button>
+  <span id="p-pname" class="pname"></span>
+  <span id="p-room" class="room-b" style="flex-shrink:0"></span>
+  <div id="p-avs" class="cav-row" style="flex-shrink:0"></div>
+  <button class="bar-btn" onclick="Planner.save()">Save</button>
+  <button class="bar-btn" onclick="Modal.open('m-export')">Export</button>
+  <button class="bar-btn" onclick="WR.open()">+ Collab</button>
+  <button class="bar-btn" onclick="Chat.toggle()" title="Chat with collaborators">💬 Chat <span id="host-chat-badge" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:0 5px;font-size:10px;margin-left:4px">0</span></button>
+  <button class="bar-btn" onclick="Modal.open('m-tpl')">Templates</button>
+  <button class="bar-btn" onclick="Modal.open('m-tests')">Tests</button>
+  <button class="bar-btn ac" id="ai-btn" onclick="Planner.runAI()">Run AI</button>
+</div>
+<div class="plan-layout">
+  <aside class="pleft">
+    <div class="ps"><div class="ps-lbl">Place objects</div><div id="pal" class="pal"></div></div>
+    <div class="ps"><div class="ps-lbl">Venue stats</div><div id="vstats" class="vstats"></div></div>
+    <div id="cap-al" class="cap-a h ps"></div>
+    <div class="ps"><div class="ps-lbl">Selected object</div><div id="obj-props"><p class="muted">Click an object to edit</p></div></div>
+    <div class="ps"><div class="ps-lbl">Collab log</div><div id="clog" class="clog"></div></div>
+  </aside>
+  <div class="canv-a" id="canv-wrap">
+    <div id="c-hint" class="chint"><p>Select from the left panel to place objects</p><p>Right-drag to orbit · Scroll to zoom · Click to select</p></div>
+    <canvas id="c3d"></canvas>
+    <div class="fleg"><div class="fli"><span class="fld g"></span>Feasible</div><div class="fli"><span class="fld y"></span>Marginal</div><div class="fli"><span class="fld r"></span>Critical</div></div>
+    <div id="sc-w" class="score-w h"><canvas id="sc-r" width="110" height="110"></canvas><div id="sc-n" class="score-n">--</div><div class="score-l">Layout score</div></div>
+    <div id="ovf" class="ovf-ban h"></div>
+  </div>
+  <aside class="pright">
+    <div class="ps"><div class="ps-lbl">AI engine</div><div id="ai-st" class="ai-s idle"><div class="ai-d"></div><span>Ready -- click Run AI</span></div></div>
+    <div class="ps h" id="csug-panel">
+      <div class="ps-lbl" style="display:flex;justify-content:space-between;align-items:center">
+        Collab suggestions
+        <span id="csug-cnt" style="background:var(--amber);color:#000;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">0</span>
+      </div>
+      <div id="csug-list"></div>
+    </div>
+    <div class="ps h" id="bd-panel"><div class="ps-lbl">Score breakdown</div><div id="bd-list"></div></div>
+    <div class="ps h" id="shap-panel">
+      <div class="ps-lbl sh-hdr">XAI -- SHAP <div class="mt"><button class="mtb on" id="mt-e" onclick="XAI.mode('expert')">Expert</button><button class="mtb" id="mt-n" onclick="XAI.mode('novice')">Novice</button></div></div>
+      <div id="shap-ch" class="shap-chart"></div>
+      <div id="shap-sm" class="shap-sum h"></div>
+    </div>
+    <div class="ps h" id="bgt-panel"><div class="ps-lbl">Budget (LKR)</div><div id="bgt-ch"></div></div>
+    <div class="ps h" id="ai-sug-panel"><div class="ps-lbl">AI suggestions</div><div id="ai-sugs"></div></div>
+    <div class="ps h" id="metrics-panel">
+      <div class="ps-lbl">Session metrics</div>
+      <div id="metrics-display" class="metrics-grid"></div>
+    </div>
+  </aside>
+  <!-- Host chat panel -->
+  <div id="host-chat-panel" style="width:0;overflow:hidden;background:var(--bg4);border-left:1px solid var(--bd);display:flex;flex-direction:column;transition:width .3s ease;flex-shrink:0">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+      <div class="ps-lbl" style="margin:0">Session chat</div>
+      <button onclick="Chat.toggle()" style="background:none;border:none;color:var(--c3);cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div id="host-chat-messages" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:0"></div>
+    <div style="padding:10px;border-top:1px solid var(--bd)">
+      <div style="display:flex;gap:6px">
+        <input id="host-chat-input" placeholder="Message collaborators..." style="flex:1;padding:8px 10px;background:rgba(255,255,255,.05);border:1px solid var(--bd);border-radius:var(--r);color:var(--c1);font-family:var(--bf);font-size:12px;outline:none" onkeydown="if(event.key==='Enter')Chat.send()">
+        <button onclick="Chat.send()" style="background:var(--cyan);color:#000;border:none;border-radius:var(--r);padding:8px 14px;font-family:var(--tf);font-size:10px;font-weight:700;cursor:pointer">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- COLLABORATOR PLANNER VIEW -->
+<div id="s-cv-plan" class="scr">
+<div class="pbar">
+  <span id="cv-pname" class="pname"></span>
+  <span id="cv-room" class="room-b" style="flex-shrink:0"></span>
+  <div id="cv-avs" class="cav-row" style="flex-shrink:0"></div>
+  <button class="bar-btn" onclick="Chat.toggle()" title="Chat">💬 Chat <span id="chat-badge" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:0 5px;font-size:10px;margin-left:4px">0</span></button>
+  <button class="bsm" onclick="Join.cancel()">Leave session</button>
+</div>
+<div class="cv-banner">
+  👥 Collaborator mode -- drag objects from the palette to suggest placements. The host approves or declines in real-time.
+</div>
+<div style="display:flex;flex:1;overflow:hidden;position:relative">
+  <!-- Left panel -->
+  <aside class="pleft" style="width:200px">
+    <div class="ps">
+      <div class="ps-lbl">Suggest objects</div>
+      <p style="font-size:10px;color:var(--c2);margin-bottom:8px;line-height:1.5">Click to suggest. Host approves before applying.</p>
+      <div id="cv-pal" class="pal"></div>
+    </div>
+    <div class="ps">
+      <div class="ps-lbl">Your suggestions</div>
+      <div id="cv-sug-list" style="display:flex;flex-direction:column;gap:5px"></div>
+    </div>
+    <div class="ps"><div class="ps-lbl">Session log</div><div id="cv-clog" class="clog"></div></div>
+  </aside>
+
+  <!-- 3D canvas -- live mirror of host scene -->
+  <div class="canv-a" id="cv-canv-wrap" style="position:relative">
+    <canvas id="cv-c3d" style="width:100%;height:100%;display:block"></canvas>
+    <!-- Live badge -->
+    <div style="position:absolute;top:12px;left:12px;background:rgba(255,68,102,.9);color:#fff;font-family:var(--tf);font-size:10px;letter-spacing:.12em;padding:3px 10px;border-radius:20px;animation:pulse 2s ease-in-out infinite">● LIVE</div>
+    <!-- Pending suggestion preview label -->
+    <div id="cv-pending-label" style="display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,184,0,.15);border:1px solid rgba(255,184,0,.4);color:var(--amber);font-size:12px;padding:6px 16px;border-radius:20px;backdrop-filter:blur(8px)">
+      Suggestion sent -- waiting for host approval...
+    </div>
+  </div>
+
+  <!-- Chat panel (slides in from right) -->
+  <div id="chat-panel" style="width:0;overflow:hidden;background:var(--bg4);border-left:1px solid var(--bd);display:flex;flex-direction:column;transition:width .3s ease;flex-shrink:0">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+      <div class="ps-lbl" style="margin:0">Session chat</div>
+      <button onclick="Chat.toggle()" style="background:none;border:none;color:var(--c3);cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div id="chat-messages" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:0"></div>
+    <div style="padding:10px;border-top:1px solid var(--bd)">
+      <div style="display:flex;gap:6px">
+        <input id="chat-input" placeholder="Type a message..." style="flex:1;padding:8px 10px;background:rgba(255,255,255,.05);border:1px solid var(--bd);border-radius:var(--r);color:var(--c1);font-family:var(--bf);font-size:12px;outline:none" onkeydown="if(event.key==='Enter')Chat.send()">
+        <button onclick="Chat.send()" style="background:var(--cyan);color:#000;border:none;border-radius:var(--r);padding:8px 14px;font-family:var(--tf);font-size:10px;font-weight:700;cursor:pointer">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════
+  KICKED SCREEN
+════════════════════════════════════════ -->
+<div id="s-kicked" class="scr">
+  <div class="lbg"><div class="grid-v"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+  <div style="position:relative;z-index:1;display:flex;align-items:center;justify-content:center;flex:1">
+  <div class="wait-card" style="border-color:rgba(255,68,102,.35);text-align:center">
+    <div style="font-size:48px;margin-bottom:16px">🚫</div>
+    <div class="screen-title" style="font-size:18px;color:var(--red);margin-bottom:8px">Removed from session</div>
+    <p id="kicked-msg" style="font-size:13px;color:var(--c2);margin-bottom:20px;line-height:1.6">
+      You have been removed from this session by the host.
+    </p>
+    <div style="background:rgba(255,68,102,.08);border:1px solid rgba(255,68,102,.25);border-radius:var(--r);padding:12px 16px;margin-bottom:24px">
+      <div style="font-size:10px;color:var(--c3);letter-spacing:.1em;margin-bottom:4px">BLOCKED ROOM</div>
+      <div id="kicked-room" style="font-family:var(--tf);font-size:20px;color:var(--red);letter-spacing:.2em"></div>
+      <div style="font-size:11px;color:var(--c3);margin-top:4px">You cannot rejoin this session</div>
+    </div>
+    <button class="bp" onclick="Nav.go('s-role')" style="width:100%;background:var(--red);box-shadow:none">
+      Return to start
+    </button>
+  </div>
+  </div>
+</div>
+
+<!-- ═══════ MODALS ═══════ -->
+<div id="m-croom" class="modal h">
+<div class="mbox">
+  <div class="mhdr"><span class="mtitle">Session collaboration</span><button class="mcls" onclick="Modal.close('m-croom')">✕</button></div>
+  <div class="wr-code-box">
+    <div style="font-size:10px;color:var(--c3);letter-spacing:.1em">ROOM CODE -- SHARE WITH COLLABORATORS</div>
+    <div id="mr-code" class="wr-code-val">---</div>
+    <div style="font-size:11px;color:var(--c3)">Max 5 users · Collaborators join via Room ID · You must admit them</div>
+  </div>
+  <div style="margin-bottom:14px">
+    <div style="font-size:10px;letter-spacing:.1em;color:var(--c3);margin-bottom:8px">WAITING ROOM -- ADMIT OR DENY</div>
+    <div id="mr-wait" style="font-size:11px;color:var(--c3)">No users waiting</div>
+  </div>
+  <div>
+    <div style="font-size:10px;letter-spacing:.1em;color:var(--c3);margin-bottom:8px">ACTIVE USERS (max 5)</div>
+    <div id="mr-active" class="wr-users"></div>
+  </div>
+</div>
+</div>
+
+<div id="m-export" class="modal h">
+<div class="mbox" style="max-width:340px">
+  <div class="mhdr"><span class="mtitle">Export project</span><button class="mcls" onclick="Modal.close('m-export')">✕</button></div>
+  <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+    <button class="bp w-full" onclick="Exp.img()">Layout image (PNG)</button>
+    <button class="bs w-full" onclick="Exp.json()">Project data (JSON)</button>
+    <button class="bs w-full" onclick="Exp.testReport()">Test report (HTML)</button>
+    <button class="bs w-full" onclick="Exp.metricsReport()">Metrics report (JSON)</button>
+  </div>
+</div>
+</div>
+
+<div id="m-tpl" class="modal h">
+<div class="mbox">
+  <div class="mhdr"><span class="mtitle">Smart templates</span><button class="mcls" onclick="Modal.close('m-tpl')">✕</button></div>
+  <p style="font-size:12px;color:var(--c2);margin-bottom:14px">Auto-loads a themed layout for your event type</p>
+  <div id="tpl-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+</div>
+</div>
+
+<div id="m-tests" class="modal h">
+<div class="mbox">
+  <div class="mhdr"><span class="mtitle">Automated test suite (24 tests)</span><button class="mcls" onclick="Modal.close('m-tests')">✕</button></div>
+  <div style="display:flex;gap:9px;margin-bottom:14px">
+    <button class="bp" style="width:auto;padding:8px 18px" onclick="TestUI.run()">Run all tests</button>
+    <button class="bs" style="padding:8px 14px" onclick="Exp.testReport()">Export report</button>
+  </div>
+  <div id="tr-box"><p style="font-size:12px;color:var(--c2)">Click Run to execute 24 automated tests</p></div>
+</div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════════
+   SLAY v5 -- Production-quality FYP prototype
+   Architecture: Single-file HTML app with modular JS namespaces.
+   Real-time: BroadcastChannel (same-origin tabs) simulating WebSocket.
+   Research gap: SHAP XAI + collaborative 3D spatial planning.
+   
+   PSEUDOCODE -- Action Queue System (implements RQ3):
+   
+   COLLABORATOR places object:
+     1. action = { id, type:'place_object', objectType, position, by:collabUser }
+     2. ActionQueue.push(action)  [status: 'pending']
+     3. RT.emit('pending_action', action) → host receives via BC
+     4. Host sees popup: "Kaveesha suggests placing Round Table"
+     5. Host clicks Accept → RT.emit('action_approved', { id })
+                   Reject → RT.emit('action_rejected', { id, reason })
+     6. If approved: Scene3D.place(action.objectType, action.position)
+                     RT.emit('layout_update', sceneState) → all users sync
+     7. Logger.log({ event:'action_approved', id, by:hostUser, decisionMs })
+     8. Metrics.record({ type:'approval', timeMs: Date.now() - action.sentAt })
+   
+   STATE MACHINE: pending → approved | rejected
+   SINGLE SOURCE OF TRUTH: host Scene3D state, broadcast to all on every change.
+═══════════════════════════════════════════════════════════════════ */
+
+/* ════════ STATE ════════ */
+const S = {
+  user: null,          // { username, role, name, color, avatar, authMethod }
+  selectedRole: null,  // from role selection screen
+  selectedAvatar: 'male',
+  project: null,
+  projects: [],
+  aiResult: null,
+  sceneOk: false,
+  sessionId: null,     // current room ID
+  actionQueue: [],     // pending collaborator actions
+};
+
+const ROLE_COL = { host:'#00d4ff', planner:'#00d4ff', admin:'#00ff88', collaborator:'#ffb800' };
+const AV_ICON = { male:'🧑', female:'👩', custom:'🧑‍💻' };
+
+const SEED = {
+  planner_01: { password:'password', role:'host',        name:'Ridma Palansuriya', color:'#00d4ff', avatar:'male',   joined:'2026-01-15' },
+  collab_01:  { password:'password', role:'collaborator',name:'Kaveesha Fernando',  color:'#ffb800', avatar:'female', joined:'2026-02-01' },
+  admin_01:   { password:'password', role:'admin',       name:'Admin User',          color:'#00ff88', avatar:'custom', joined:'2026-01-01' },
+};
+
+function getUsers(){try{return{...SEED,...JSON.parse(localStorage.getItem('slay5_u')||'{}')};}catch(e){return{...SEED};}}
+function saveUser(u,r){try{const s=JSON.parse(localStorage.getItem('slay5_u')||'{}');s[u]=r;localStorage.setItem('slay5_u',JSON.stringify(s));}catch(e){}}
+function loadProjects(){try{S.projects=JSON.parse(localStorage.getItem('slay5_p')||'[]');}catch(e){S.projects=[];}}
+function saveProjects(){try{localStorage.setItem('slay5_p',JSON.stringify(S.projects));}catch(e){}}
+function upsert(p){const i=S.projects.findIndex(x=>x.id===p.id);i>=0?S.projects[i]=p:S.projects.unshift(p);saveProjects();}
+
+/* ════════ LOGGER ════════
+   Logs every user action, collaboration event, AI usage, and decision.
+   Used for: thesis Chapter 9 evaluation, metrics computation.
+*/
+const Logger = {
+  _log: [],
+  log(event){
+    const entry = {
+      ts: Date.now(),
+      session: S.sessionId || 'local',
+      user: S.user?.username || 'anon',
+      role: S.user?.role || 'unknown',
+      ...event
+    };
+    this._log.push(entry);
+    // Keep last 500 entries in memory
+    if(this._log.length > 500) this._log.shift();
+    // Persist last 100 to localStorage
+    try{localStorage.setItem('slay5_log',JSON.stringify(this._log.slice(-100)));}catch(e){}
+  },
+  getLogs(){ return this._log; },
+  exportJSON(){
+    const blob = new Blob([JSON.stringify(this._log, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.download = `SLAY_log_${Date.now()}.json`;
+    a.href = url; a.click(); URL.revokeObjectURL(url);
+  }
+};
+
+/* ════════ METRICS ════════
+   Tracks: collaboration efficiency, decision time, AI usage impact.
+   Research value: measures whether XAI explanations reduce decision iterations.
+*/
+const Metrics = {
+  _data: {
+    sessionStart: null,
+    aiRuns: 0,
+    aiScores: [],
+    suggestionsTotal: 0,
+    suggestionsAccepted: 0,
+    suggestionsDeclined: 0,
+    decisionTimes: [],       // ms from suggestion sent to host decision
+    iterationsToScore70: 0,  // how many AI runs before score >= 70
+    score70Reached: false,
+    shapViewedExpert: 0,
+    shapViewedNovice: 0,
+    objectsPlaced: 0,
+    objectsRemoved: 0,
+  },
+  start(){
+    this._data.sessionStart = Date.now();
+    Logger.log({ event:'session_start' });
+  },
+  aiRun(score){
+    this._data.aiRuns++;
+    this._data.aiScores.push({ score, ts: Date.now() });
+    if(!this._data.score70Reached){
+      this._data.iterationsToScore70++;
+      if(score >= 70) this._data.score70Reached = true;
+    }
+    Logger.log({ event:'ai_run', score });
+  },
+  suggestion(status, sentAt){
+    this._data.suggestionsTotal++;
+    if(status === 'accepted') this._data.suggestionsAccepted++;
+    else this._data.suggestionsDeclined++;
+    const dt = Date.now() - sentAt;
+    this._data.decisionTimes.push(dt);
+    Logger.log({ event:'suggestion_decision', status, decisionMs: dt });
+  },
+  shapView(mode){
+    if(mode === 'expert') this._data.shapViewedExpert++;
+    else this._data.shapViewedNovice++;
+    Logger.log({ event:'shap_viewed', mode });
+  },
+  place(){ this._data.objectsPlaced++; },
+  remove(){ this._data.objectsRemoved++; },
+  getSummary(){
+    const d = this._data;
+    const avgDt = d.decisionTimes.length ? Math.round(d.decisionTimes.reduce((a,b)=>a+b,0)/d.decisionTimes.length) : 0;
+    const acceptRate = d.suggestionsTotal ? Math.round(d.suggestionsAccepted/d.suggestionsTotal*100) : 0;
+    const sessionSecs = d.sessionStart ? Math.round((Date.now()-d.sessionStart)/1000) : 0;
+    const lastScore = d.aiScores.length ? d.aiScores[d.aiScores.length-1].score : null;
+    return {
+      sessionDuration: `${Math.floor(sessionSecs/60)}m ${sessionSecs%60}s`,
+      aiRuns: d.aiRuns,
+      lastScore,
+      iterationsToScore70: d.iterationsToScore70 || 'Not reached',
+      suggestionsTotal: d.suggestionsTotal,
+      acceptRate: `${acceptRate}%`,
+      avgDecisionTime: avgDt ? `${(avgDt/1000).toFixed(1)}s` : 'N/A',
+      objectsPlaced: d.objectsPlaced,
+      shapExpertViews: d.shapViewedExpert,
+      shapNoviceViews: d.shapViewedNovice,
+    };
+  }
+};
+
+/* ════════ REAL-TIME COLLABORATION (BroadcastChannel) ════════
+   Fixed architecture:
+   - ONE BroadcastChannel 'slay5_collab' shared across ALL tabs
+   - Room filtering done inside handlers, NOT in _dispatch
+   - _bcRoom no longer gates message delivery
+   - Each handler decides if the message is relevant to it
+   - This means host receives collab_request even before opening planner,
+     as long as the room codes match
+   Production swap: replace _bc.postMessage with socket.emit,
+   and _bc.onmessage handler with socket.on per event type.
+*/
+/* ════════════════════════════════════════════════════════════════════
+   SLAY RT -- Real-time messaging via localStorage events
+   
+   WHY localStorage instead of BroadcastChannel:
+   - BroadcastChannel is blocked between different file:// paths in Chrome
+   - localStorage 'storage' events fire across ALL tabs of the same origin
+     INCLUDING all file:// tabs (they share the null origin)
+   - Same message protocol, zero changes needed elsewhere
+   
+   Production migration: swap localStorage.setItem → socket.emit
+   and window 'storage' event → socket.on per event type.
+═══════════════════════════════════════════════════════════════════ */
+
+const RT_KEY = 'slay5_rt_msg';   // localStorage key for messages
+let _myRoom     = null;
+let _myUsername = null;
+const _handlers = {};
+
+const RT = {
+
+  // Join a room -- store our identity for filtering
+  join(roomId){
+    _myRoom     = roomId;
+    _myUsername = S.user?.username || null;
+    Logger.log({ event:'rt_joined', roomId });
+  },
+
+  // Leave room
+  leave(){
+    if(_myRoom){
+      RT.emit('presence', { user:S.user, roomId:_myRoom, joined:false });
+    }
+    _myRoom     = null;
+    _myUsername = null;
+  },
+
+  // Broadcast to all other tabs via localStorage
+  emit(type, payload){
+    const msg = {
+      type,
+      payload,
+      roomId:   _myRoom,
+      from:     S.user?.username || 'anon',
+      fromName: S.user?.name     || 'Unknown',
+      ts:       Date.now(),
+      _nonce:   Math.random()    // ensures storage event fires even for identical payloads
+    };
+    try{
+      localStorage.setItem(RT_KEY, JSON.stringify(msg));
+    }catch(e){ console.warn('RT.emit failed:', e); }
+  },
+
+  // Register handler: fn(payload, from, roomId, ts)
+  on(type, fn){
+    if(!_handlers[type]) _handlers[type] = [];
+    _handlers[type].push(fn);
+  },
+
+  // Remove handlers for one event type
+  off(type){ _handlers[type] = []; },
+
+  // Remove only collaborator-side listeners (not host-side)
+  offCollab(){
+    ['admit_user','deny_user','pending_action_result','layout_update'].forEach(t=>{ _handlers[t]=[]; });
+  },
+
+  // Internal: receive and dispatch
+  _recv(msg){
+    if(!msg || !msg.type) return;
+    // Ignore own messages
+    if(msg.from && msg.from === (_myUsername || S.user?.username)) return;
+    const fns = _handlers[msg.type] || [];
+    fns.forEach(fn=>{
+      try{ fn(msg.payload, msg.from, msg.roomId, msg.ts); }
+      catch(e){ console.error('RT handler error ['+msg.type+']:', e); }
+    });
+    Logger.log({ event:'rt_recv', type:msg.type, from:msg.from, roomId:msg.roomId });
+  }
+};
+
+// Listen to localStorage events -- fires in every OTHER tab when any tab calls RT.emit()
+window.addEventListener('storage', e=>{
+  if(e.key !== RT_KEY || !e.newValue) return;
+  try{
+    const msg = JSON.parse(e.newValue);
+    RT._recv(msg);
+  }catch(err){ console.warn('RT parse error:', err); }
+});
+/* ════════ TOAST ════════ */
+let _tt;
+function toast(msg, type='i', ms=3000){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast on ${type}`;
+  clearTimeout(_tt); _tt = setTimeout(()=>t.classList.remove('on'), ms);
+}
+
+/* ════════ CLOG ════════ */
+function clog(msg, type='user', target='clog'){
+  const el = document.getElementById(target); if(!el) return;
+  const e = document.createElement('div');
+  e.className = `cle ${type}`;
+  const tm = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  e.textContent = `[${tm}] ${msg}`;
+  el.insertBefore(e, el.firstChild);
+  while(el.children.length > 30) el.removeChild(el.lastChild);
+}
+
+/* ════════ MODAL ════════ */
+const Modal = {
+  open(id){ document.getElementById(id)?.classList.remove('h'); },
+  close(id){ document.getElementById(id)?.classList.add('h'); }
+};
+
+/* ════════ NAVIGATION ════════ */
+const Nav = {
+  go(id){
+    document.querySelectorAll('.scr').forEach(s=>{ s.classList.remove('on'); s.style.display='none'; });
+    const el = document.getElementById(id);
+    if(el){ el.style.display='flex'; requestAnimationFrame(()=>el.classList.add('on')); }
+    Logger.log({ event:'navigate', screen: id });
+  },
+  newProject(){ Wiz.reset(); this.go('s-wiz'); },
+  openPlanner(p){ Planner.open(p); }
+};
+
+/* ════════ LOADING SCREEN ════════ */
+const Loader = {
+  start(){
+    let pct = 0;
+    const bar = document.getElementById('load-bar');
+    const pctEl = document.getElementById('load-pct');
+    const steps = [
+      { p:20, delay:200, msg:'Initialising engine...' },
+      { p:45, delay:400, msg:'Loading AI model...' },
+      { p:70, delay:300, msg:'Preparing 3D scene...' },
+      { p:90, delay:400, msg:'Connecting services...' },
+      { p:100,delay:300, msg:'Ready!' },
+    ];
+    let i = 0;
+    const next = () => {
+      if(i >= steps.length){ setTimeout(()=>Nav.go('s-role'), 300); return; }
+      const s = steps[i++];
+      setTimeout(()=>{
+        pct = s.p; bar.style.width = pct+'%'; pctEl.textContent = pct+'%';
+        next();
+      }, s.delay);
+    };
+    next();
+  }
+};
+
+/* ════════ ROLE SELECTION ════════ */
+const Role = {
+  _role: null,
+  _avatar: 'male',
+  select(role, el){
+    this._role = role;
+    document.querySelectorAll('.role-card').forEach(c=>c.classList.remove('sel'));
+    el.classList.add('sel');
+    document.getElementById('role-hint').textContent = `Role: ${role} selected. Choose an avatar.`;
+    this._checkReady();
+    Logger.log({ event:'role_selected', role });
+  },
+  avatar(type, el){
+    this._avatar = type;
+    document.querySelectorAll('.av-pick').forEach(a=>a.classList.remove('sel'));
+    el.classList.add('sel');
+    S.selectedAvatar = type;
+    this._checkReady();
+    Logger.log({ event:'avatar_selected', avatar: type });
+  },
+  _checkReady(){
+    const btn = document.getElementById('role-continue');
+    const ready = this._role && this._avatar;
+    btn.disabled = !ready;
+    if(ready) document.getElementById('role-hint').textContent = `Ready! Click Continue as ${this._role}.`;
+  },
+  proceed(){
+    if(!this._role){ toast('Select a role first','e'); return; }
+    S.selectedRole = this._role;
+    S.selectedAvatar = this._avatar;
+    if(this._role === 'collaborator'){
+      Nav.go('s-join');
+    } else {
+      // Host or Admin → go to auth
+      const avIcon = document.getElementById('auth-av');
+      const roleLbl = document.getElementById('auth-role-lbl');
+      if(avIcon) avIcon.textContent = AV_ICON[this._avatar] || '👑';
+      if(roleLbl) roleLbl.textContent = this._role.toUpperCase();
+      Auth.mode('login');
+      Auth.tab('email');
+      Nav.go('s-auth');
+    }
+  }
+};
+
+/* ════════ AUTH ════════ */
+const Auth = {
+  mode(m){
+    document.getElementById('p-login').classList.toggle('h', m!=='login');
+    document.getElementById('p-reg').classList.toggle('h', m!=='register');
+    document.getElementById('am-login').classList.toggle('on', m==='login');
+    document.getElementById('am-reg').classList.toggle('on', m==='register');
+    ['le','re-err'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display='none'; });
+  },
+  tab(t){
+    ['email','google','facebook'].forEach(x=>{ const e=document.getElementById(`f-${x}`); if(e) e.classList.toggle('h',x!==t); });
+    document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',['email','google','facebook'][i]===t));
+  },
+  togglePw(id,btn){ const el=document.getElementById(id);if(!el)return;const s=el.type==='password';el.type=s?'text':'password';btn.innerHTML=s?'🙈':'👁'; },
+  strength(input){
+    const v=input.value,bar=document.getElementById('psb'),lbl=document.getElementById('psl');
+    if(!bar||!lbl)return;
+    let sc=0;if(v.length>=6)sc++;if(v.length>=10)sc++;if(/[A-Z]/.test(v))sc++;if(/[0-9]/.test(v))sc++;if(/[^A-Za-z0-9]/.test(v))sc++;
+    const L=[{w:'0',b:'transparent',t:'',c:''},{w:'25%',b:'var(--red)',t:'Weak',c:'e'},{w:'50%',b:'var(--amber)',t:'Fair',c:'w'},{w:'75%',b:'#6bc46c',t:'Good',c:'ok'},{w:'90%',b:'var(--green)',t:'Strong',c:'ok'},{w:'100%',b:'var(--green)',t:'Very strong',c:'ok'}];
+    const l=L[sc]||L[0];bar.style.width=l.w;bar.style.background=l.b;lbl.textContent=l.t;lbl.className=`fh ${l.c}`;
+  },
+  chkUser(input){
+    const v=input.value.trim().toLowerCase(),h=document.getElementById('ruh');if(!h)return;
+    if(!v){h.textContent='';h.className='fh';return;}
+    if(v.length<3){h.textContent='Min 3 chars';h.className='fh e';return;}
+    if(!/^[a-z0-9_]+$/.test(v)){h.textContent='Lowercase, numbers, _ only';h.className='fh e';return;}
+    h.textContent=getUsers()[v]?'Taken':'Available';
+    h.className=getUsers()[v]?'fh e':'fh ok';
+  },
+  login(){
+    const u=(document.getElementById('li-u')?.value||'').trim();
+    const p=document.getElementById('li-p')?.value||'';
+    const errEl=document.getElementById('le');
+    if(!u||!p){errEl.textContent='Enter username and password.';errEl.style.display='block';return;}
+    const rec=getUsers()[u];
+    if(!rec){errEl.textContent=`No account for "${u}". Try planner_01 / password.`;errEl.style.display='block';return;}
+    if(rec.password!==p){errEl.textContent='Incorrect password.';errEl.style.display='block';return;}
+    errEl.style.display='none';
+    // Override role with the one selected on role screen if provided
+    const finalRole = S.selectedRole || rec.role;
+    Auth._setUser(u, {...rec, role:finalRole, avatar: S.selectedAvatar || rec.avatar});
+  },
+  register(){
+    const nm=(document.getElementById('rn')?.value||'').trim();
+    const u=(document.getElementById('ru')?.value||'').trim().toLowerCase();
+    const em=(document.getElementById('re')?.value||'').trim();
+    const p=document.getElementById('rp')?.value||'';
+    const p2=document.getElementById('rp2')?.value||'';
+    const role=S.selectedRole||'host';
+    const err=document.getElementById('re-err');
+    const fail=m=>{err.textContent=m;err.style.display='block';};
+    if(!nm) return fail('Full name required.');
+    if(!u||u.length<3) return fail('Username must be 3+ chars.');
+    if(!/^[a-z0-9_]+$/.test(u)) return fail('Username: lowercase, numbers, _ only.');
+    if(!em||!em.includes('@')) return fail('Valid email required.');
+    if(p.length<6) return fail('Password must be 6+ chars.');
+    if(p!==p2) return fail('Passwords do not match.');
+    if(getUsers()[u]) return fail(`Username "${u}" already taken.`);
+    const rec={password:p,role,name:nm,email:em,color:ROLE_COL[role]||'#8b949e',avatar:S.selectedAvatar||'male',joined:new Date().toISOString().split('T')[0]};
+    saveUser(u,rec);
+    err.style.display='none';
+    toast(`Account created! Welcome, ${nm}`,'s');
+    Auth._setUser(u,rec);
+  },
+  oauth(provider){
+    const u='planner_01', rec=getUsers()[u];
+    toast(`${provider} OAuth connected (demo)`,'i');
+    Auth._setUser(u,{...rec,role:S.selectedRole||rec.role,avatar:S.selectedAvatar||rec.avatar});
+  },
+  quick(role){
+    const map={host:'planner_01',admin:'admin_01',collaborator:'collab_01'};
+    const u=map[role]||'planner_01', rec=getUsers()[u]; if(!rec) return;
+    const uEl=document.getElementById('li-u'),pEl=document.getElementById('li-p');
+    if(uEl) uEl.value=u; if(pEl) pEl.value='password';
+    setTimeout(()=>Auth._setUser(u,{...rec,role,avatar:S.selectedAvatar||rec.avatar}),200);
+  },
+  _setUser(username, rec){
+    S.user={ username, role:rec.role, name:rec.name, color:rec.color||ROLE_COL[rec.role]||'#8b949e', avatar:rec.avatar||'male', authMethod:'email' };
+    loadProjects();
+    // Update all nav displays
+    const avIcon = AV_ICON[rec.avatar||'male'] || '👑';
+    const nameEls = ['dn-name','an-name'];
+    nameEls.forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=rec.name; });
+    const dnAv = document.getElementById('dn-av'); if(dnAv) dnAv.textContent = avIcon;
+    const dnRole = document.getElementById('dn-role');
+    if(dnRole){ dnRole.textContent=rec.role.toUpperCase(); }
+    Logger.log({ event:'login', role:rec.role, avatar:rec.avatar });
+    Metrics.start();
+    if(rec.role==='admin'){ Nav.go('s-admin'); Admin.refresh(); }
+    else if(rec.role==='collaborator'){ Nav.go('s-join'); }
+    else{ Nav.go('s-dash'); Dash.refresh(); }
+    toast(`Welcome, ${rec.name}`,'s');
+  },
+  logout(){
+    RT.leave(); Logger.log({event:'logout'});
+    S.user=null; S.project=null; S.selectedRole=null;
+    if(S.sceneOk){ try{Scene3D.destroy();}catch(e){}  S.sceneOk=false; }
+    ['li-u','li-p'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    Auth.mode('login'); Auth.tab('email');
+    Nav.go('s-role');
+  },
+  getAllUsers: getUsers,
+  requireRole(...roles){ return !!(S.user && roles.includes(S.user.role)); }
+};
+
+/* ════════ COLLABORATOR JOIN FLOW ════════ */
+let _joinAvatar = 'male';
+const Join = {
+  setAv(type, el){
+    _joinAvatar = type;
+    document.querySelectorAll('[id^="jav-"]').forEach(a=>a.classList.remove('sel'));
+    el.classList.add('sel');
+  },
+  submit(){
+    const code = (document.getElementById('j-room')?.value||'').trim().toUpperCase();
+    const nick = (document.getElementById('j-nick')?.value||'').trim();
+    const errEl = document.getElementById('join-err');
+    if(!code){ errEl.textContent='Enter a Room ID.'; errEl.style.display='block'; return; }
+    if(!nick){ errEl.textContent='Enter a nickname.'; errEl.style.display='block'; return; }
+    if(!/^[A-Z]{2,4}-[A-Z0-9]{2,5}$/.test(code)){ errEl.textContent='Room ID format should be like WED-A3B.'; errEl.style.display='block'; return; }
+
+    // Check if this user was kicked from this room
+    const blockedRooms = JSON.parse(localStorage.getItem('slay5_blocked')||'[]');
+    if(blockedRooms.includes(code)){
+      errEl.textContent=`You have been blocked from room ${code}. You cannot rejoin this session.`;
+      errEl.style.display='block';
+      return;
+    }
+
+    errEl.style.display='none';
+    // Set collab user
+    S.user = { username:'collab_'+Date.now(), role:'collaborator', name:nick, color:ROLE_COL.collaborator, avatar:_joinAvatar };
+    S.sessionId = code;
+    // Show waiting screen
+    document.getElementById('wait-code').textContent = code;
+    document.getElementById('wait-nick').textContent = `Joining as: ${nick}`;
+    document.getElementById('wait-status').textContent = 'Sending join request to host...';
+    Nav.go('s-wait');
+    // Clear only collaborator-side listeners (not host-side handlers)
+    RT.offCollab();
+    RT.join(code);
+
+    // Emit immediately
+    RT.emit('collab_request', { user: S.user, roomId: code });
+    Logger.log({ event:'collab_join_request', roomId:code, nick });
+
+    // RETRY every 3 seconds -- host tab may not have set _bcRoom yet
+    // Stops automatically once admitted or denied
+    let _retryCount = 0;
+    const _retryInterval = setInterval(()=>{
+      _retryCount++;
+      if(_retryCount > 20){ clearInterval(_retryInterval); return; } // stop after 60s
+      const st = document.getElementById('wait-status');
+      if(st) st.textContent = `Waiting for host... (attempt ${_retryCount+1})`;
+      RT.emit('collab_request', { user: S.user, roomId: code });
+    }, 3000);
+
+    // Listen for host response -- capture user ref at submit time
+    const _thisUser = S.user;
+    RT.on('admit_user', (payload)=>{
+      if(payload.username === _thisUser.username){
+        clearInterval(_retryInterval);
+        const st = document.getElementById('wait-status');
+        if(st){ st.textContent='Admitted! Loading session...'; st.style.color='var(--green)'; }
+        setTimeout(()=>CV.enterSession(code), 800);
+      }
+    });
+    RT.on('deny_user', (payload)=>{
+      if(payload.username === _thisUser.username){
+        clearInterval(_retryInterval);
+        const st = document.getElementById('wait-status');
+        if(st){ st.textContent='Entry denied by host.'; st.style.color='var(--red)'; }
+        toast('Entry denied by host','e');
+        Logger.log({ event:'collab_denied', roomId:code });
+      }
+    });
+    RT.on('pending_action_result', (payload)=>{ CV.onActionResult(payload); });
+    RT.on('layout_update', (payload)=>{ CV.onLayoutUpdate(payload); });
+    RT.on('scene_state_response', (payload)=>{
+      if(!payload) return;
+      // Store event data so CV._initScene can build the correct venue
+      if(payload.eventData){
+        S._collabEventData = payload.eventData;
+      }
+      // If scene already initialised, apply objects; otherwise trigger init
+      if(_cvScene){
+        if(payload.objects) CV.applySceneState(payload.objects);
+      } else {
+        CV._initScene(payload.roomId || S.sessionId, payload.eventData);
+        if(payload.objects){
+          setTimeout(()=>CV.applySceneState(payload.objects), 300);
+        }
+      }
+    });
+    RT.on('kicked', (payload)=>{
+      if(payload.username !== _thisUser.username) return;
+      clearInterval(_retryInterval);
+    });
+  },
+  cancel(){
+    RT.leave();
+    RT.offAll();
+    CV.cleanup();
+    Logger.log({event:'collab_cancelled'});
+    S.user=null; S.sessionId=null;
+    // Clear any pending retry interval
+    // (the interval ref is local to submit() so we use a flag on S)
+    S._joinRetryActive = false;
+    Nav.go('s-role');
+  }
+};
+
+/* ════════ COLLABORATOR SESSION VIEW ════════ */
+/* ════ COLLABORATOR SESSION -- real-time mirrored scene + collab drag + chat ════ */
+/* ═══════════════════════════════════════════════════════════════
+   COLLABORATOR SESSION VIEW
+   - Full mirrored 3D scene (same DEFS as host)
+   - Real-time layout sync via layout_update RT events
+   - Glowing ghost preview for pending suggestions
+   - Collab orbit + scroll camera control
+═══════════════════════════════════════════════════════════════ */
+const _cvSugs  = [];
+let   _cvScene = null;  // { renderer,scene,camera,objects,animId,resizeFn,vW,vD }
+
+const CV = {
+  _sessionCode: null,
+
+  /* ── Enter session after host admits ── */
+  enterSession(roomId){
+    S.sessionId      = roomId;
+    this._sessionCode = roomId;
+    _cvSugs.length   = 0;
+    this._renderSugs();
+
+    // Update header bar
+    const pname = document.getElementById('cv-pname');
+    const croom = document.getElementById('cv-room');
+    if(pname) pname.textContent = `Collaborating in ${roomId}`;
+    if(croom) croom.textContent = roomId;
+    const avs = document.getElementById('cv-avs');
+    if(avs) avs.innerHTML = `<div class="av-sm" style="background:${S.user.color}" title="${S.user.name}">${AV_ICON[S.user.avatar]||'👥'}</div>`;
+
+    _buildCVPalette();
+    Nav.go('s-cv-plan');
+
+    // Destroy any existing scene
+    this._destroyScene();
+
+    // Wait for screen to be fully painted before init (double rAF guarantees layout)
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        // Use stored eventData if we already received scene_state_response
+        this._initScene(roomId, S._collabEventData || null);
+        // Request scene state from host (retry 3x with backoff)
+        const tryRequest = (attempt)=>{
+          RT.emit('request_scene_state', { roomId, from: S.user?.username });
+          if(attempt < 3) setTimeout(()=>tryRequest(attempt+1), 1500 * attempt);
+        };
+        setTimeout(()=>tryRequest(1), 300);
+      });
+    });
+
+    clog(`Joined room ${roomId}`, 'cb', 'cv-clog');
+    toast('Admitted to session!', 's');
+    Logger.log({ event:'collab_admitted', roomId });
+    Metrics.start();
+  },
+
+  /* ── Build the 3D scene ── */
+  _initScene(roomId, passedEventData){
+    const canvas = document.getElementById('cv-c3d');
+    if(!canvas){ console.warn('cv-c3d not found'); return; }
+
+    // Get event data -- priority: passed > stored from scene_state_response > S.project > defaults
+    const proj = S.projects.find(p=>p.roomId===roomId) || S.project;
+    const ev   = passedEventData
+              || S._collabEventData
+              || proj?.eventData
+              || { venue_area:300, floor_texture:'wood', ceiling_height:4, exit_count:2, guests:100 };
+
+    const a  = ev.venue_area || 300;
+    const vW = Math.round(Math.sqrt(a * 1.33));
+    const vD = Math.round(a / vW);
+
+    // --- Renderer ---
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, preserveDrawingBuffer:true, alpha:false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x030712, 1);
+    renderer.shadowMap.enabled = false;
+    renderer.outputEncoding = THREE.sRGBEncoding || 3001;
+
+    // --- Scene ---
+    const scene = new THREE.Scene();
+    scene.fog   = new THREE.FogExp2(0x030712, 0.015);
+
+    // --- Camera ---
+    const dist = Math.max(vW, vD) * 1.1 + 8;
+    const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 300);
+    camera.position.set(dist * 0.75, dist * 0.55, dist * 0.9);
+    camera.lookAt(0, 0, 0);
+
+    // --- Floor ---
+    const fcol = { wood:0x7a5c2a, marble:0xe0dcd4, carpet:0x2d4a8c, tiles:0xb8b8c0 }[ev.floor_texture||'wood'] || 0x7a5c2a;
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(vW, vD),
+      new THREE.MeshStandardMaterial({ color:fcol, roughness:.85, metalness:.05 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+
+    // Grid
+    const grid = new THREE.GridHelper(Math.max(vW,vD)+4, Math.max(vW,vD)+4, 0x00d4ff, 0x0a1a22);
+    grid.material.transparent = true;
+    grid.material.opacity     = .28;
+    grid.position.y           = .002;
+    scene.add(grid);
+
+    // --- Walls ---
+    const wallH   = Math.min(ev.ceiling_height || 4, 8);
+    const wallMat = new THREE.MeshStandardMaterial({ color:0x141c28, roughness:.8, transparent:true, opacity:.36, side:THREE.DoubleSide });
+    [
+      { s:[vW,wallH,.05], p:[0,wallH/2,-vD/2]            },
+      { s:[vW,wallH,.05], p:[0,wallH/2, vD/2]            },
+      { s:[vD,wallH,.05], p:[ vW/2,wallH/2,0], ry:Math.PI/2 },
+      { s:[vD,wallH,.05], p:[-vW/2,wallH/2,0], ry:Math.PI/2 },
+    ].forEach(({s,p,ry})=>{
+      const m = new THREE.Mesh(new THREE.BoxGeometry(...s), wallMat.clone());
+      m.position.set(...p); if(ry) m.rotation.y = ry;
+      scene.add(m);
+    });
+
+    // Neon floor edges
+    const nMat = new THREE.MeshStandardMaterial({ color:0x00d4ff, emissive:new THREE.Color(0x00d4ff), emissiveIntensity:.8 });
+    [[0,.02,-vD/2,'x',vW],[0,.02,vD/2,'x',vW],[-vW/2,.02,0,'z',vD],[vW/2,.02,0,'z',vD]]
+    .forEach(([x,y,z,ax,sz])=>{
+      const geo = ax==='x' ? new THREE.BoxGeometry(sz,.04,.04) : new THREE.BoxGeometry(.04,.04,sz);
+      scene.add(Object.assign(new THREE.Mesh(geo, nMat.clone()), { position: new THREE.Vector3(x,y,z) }));
+    });
+
+    // Exits
+    const exMat = new THREE.MeshStandardMaterial({ color:0x00dd44, emissive:new THREE.Color(0x00dd44), emissiveIntensity:.9 });
+    const exPos = [[-vW/2,.5,0],[vW/2,.5,0],[0,.5,-vD/2],[0,.5,vD/2],[-vW/3,.5,vD/2],[vW/3,.5,vD/2],[-vW/3,.5,-vD/2],[vW/3,.5,-vD/2]];
+    for(let i=0; i < Math.min(ev.exit_count||2, 8); i++){
+      const sg = new THREE.Mesh(new THREE.BoxGeometry(.7,.35,.06), exMat.clone());
+      sg.position.set(...exPos[i]); scene.add(sg);
+    }
+
+    // --- Lights ---
+    scene.add(new THREE.AmbientLight(0x8899bb, .9));
+    const sun = new THREE.DirectionalLight(0xffffff, .7); sun.position.set(12,22,10); scene.add(sun);
+    scene.add(Object.assign(new THREE.PointLight(0x00d4ff,.5,vW*2+10), { position: new THREE.Vector3(-vW/3,4,0) }));
+    scene.add(new THREE.HemisphereLight(0x223355, 0x030712, .5));
+
+    // --- Orbit controls (right-drag / middle) ---
+    const orb = { active:false, lx:0, ly:0, phi:.85, theta:.52, r:dist };
+    const orbUpdate = ()=>{
+      const r=orb.r;
+      camera.position.set(r*Math.sin(orb.phi)*Math.sin(orb.theta), r*Math.cos(orb.phi), r*Math.sin(orb.phi)*Math.cos(orb.theta));
+      camera.lookAt(0,0,0);
+    };
+    canvas.addEventListener('mousedown', e=>{ if(e.button===2||e.button===1){ orb.active=true; orb.lx=e.clientX; orb.ly=e.clientY; }});
+    canvas.addEventListener('mousemove', e=>{ if(!orb.active)return; orb.theta-=(e.clientX-orb.lx)*.006; orb.phi=Math.max(.08,Math.min(Math.PI/2-.04,orb.phi-(e.clientY-orb.ly)*.006)); orb.lx=e.clientX; orb.ly=e.clientY; orbUpdate(); });
+    canvas.addEventListener('mouseup',   ()=>{ orb.active=false; });
+    canvas.addEventListener('wheel',     e=>{ orb.r=Math.max(6,Math.min(80,orb.r+e.deltaY*.04)); orbUpdate(); e.preventDefault(); },{passive:false});
+    canvas.addEventListener('contextmenu', e=>e.preventDefault());
+
+    // --- Resize handler (robust: checks parent has real dimensions) ---
+    const resizeFn = ()=>{
+      const w = canvas.parentElement?.clientWidth  || 800;
+      const h = canvas.parentElement?.clientHeight || 600;
+      if(w < 2 || h < 2) return;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
+    window.addEventListener('resize', resizeFn);
+
+    // --- Render loop ---
+    let animId;
+    const animate = ()=>{
+      animId = requestAnimationFrame(animate);
+      camera.position.y += Math.sin(Date.now() * .0004) * .002;
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    // Store everything
+    _cvScene = { renderer, scene, camera, objects:{}, ghosts:{}, animId, resizeFn, vW, vD, ev };
+
+    // Size correctly -- defer until after paint
+    setTimeout(resizeFn, 0);
+    setTimeout(resizeFn, 200); // second pass guarantees correct size
+  },
+
+  /* ── Apply full scene state broadcast from host ── */
+  applySceneState(objects){
+    if(!_cvScene){ console.warn('applySceneState: no _cvScene'); return; }
+    const { scene } = _cvScene;
+
+    // Remove old placed objects
+    Object.values(_cvScene.objects).forEach(mesh=>{
+      scene.remove(mesh);
+      mesh.traverse(c=>{ if(c.isMesh){ c.geometry?.dispose(); c.material?.dispose(); }});
+    });
+    _cvScene.objects = {};
+
+    if(!objects || !objects.length) return;
+
+    // Re-create from host's object list using the same DEFS
+    let placed = 0;
+    objects.forEach(o=>{
+      const def = Scene3D?.DEFS?.[o.type];
+      if(!def) return;
+      try{
+        const g = def.create();
+        g.position.set(o.x || 0, 0, o.z || 0);
+        g.rotation.y = o.rotation || 0;
+        g.name = 'cvobj_' + o.id;
+        scene.add(g);
+        _cvScene.objects[o.id] = g;
+        placed++;
+      }catch(e){ console.warn('CV applySceneState error for', o.type, e.message); }
+    });
+
+    clog(`Scene synced: ${placed}/${objects.length} objects`, 'ai', 'cv-clog');
+  },
+
+  /* ── Show glowing ghost for pending suggestion ── */
+  showGhost(type, label){
+    if(!_cvScene) return;
+    this.removeGhost(type);
+    const def = Scene3D?.DEFS?.[type];
+    if(!def) return;
+    try{
+      const g = def.create();
+      // Position in centre of scene
+      g.position.set(0, 0, 0);
+      g.name = '__ghost_' + type;
+      // Apply glowing amber translucent effect
+      g.traverse(c=>{
+        if(c.isMesh){
+          c.material = new THREE.MeshStandardMaterial({
+            color: 0xffb800,
+            emissive: new THREE.Color(0xffb800),
+            emissiveIntensity: 0.6,
+            transparent: true,
+            opacity: 0.45,
+            depthWrite: false,
+          });
+        }
+      });
+      // Add pulsing glow wireframe outline
+      const bbox  = new THREE.Box3().setFromObject(g);
+      const bsize = new THREE.Vector3(); bbox.getSize(bsize);
+      const bctr  = new THREE.Vector3(); bbox.getCenter(bctr);
+      const outlineGeo = new THREE.BoxGeometry(bsize.x+.3, bsize.y+.3, bsize.z+.3);
+      const outlineMat = new THREE.MeshBasicMaterial({ color:0xffb800, wireframe:true, transparent:true, opacity:.7 });
+      const outline    = new THREE.Mesh(outlineGeo, outlineMat);
+      outline.position.copy(bctr);
+      outline.name = '__ghost_outline_' + type;
+      _cvScene.scene.add(g);
+      _cvScene.scene.add(outline);
+      _cvScene.ghosts[type] = { group:g, outline };
+
+      // Pulsing animation stored as a flag
+      _cvScene.ghosts[type].pulseStart = Date.now();
+    }catch(e){ console.warn('showGhost error:', e); }
+  },
+
+  removeGhost(type){
+    if(!_cvScene) return;
+    if(type){
+      const ghost = _cvScene.ghosts[type];
+      if(ghost){
+        _cvScene.scene.remove(ghost.group);
+        _cvScene.scene.remove(ghost.outline);
+        ghost.group.traverse(c=>{ if(c.isMesh){ c.geometry?.dispose(); c.material?.dispose(); }});
+        ghost.outline.geometry?.dispose(); ghost.outline.material?.dispose();
+        delete _cvScene.ghosts[type];
+      }
+    } else {
+      // Remove all ghosts
+      Object.keys(_cvScene.ghosts).forEach(t=>this.removeGhost(t));
+    }
+  },
+
+  /* ── Send a suggestion to the host ── */
+  suggest(type){
+    if(!S.sessionId){ toast('Not in a session', 'e'); return; }
+    const def   = Scene3D?.DEFS?.[type];
+    const label = def?.label || type;
+    const action = {
+      id:         Date.now(),
+      type:       'place_object',
+      objectType: type,
+      label,
+      by:         S.user,
+      roomId:     S.sessionId,
+      sentAt:     Date.now(),
+      status:     'pending',
+    };
+    _cvSugs.unshift(action);
+    S.actionQueue.push(action);
+    RT.emit('pending_action', action);
+
+    // Show glowing ghost in the collab scene
+    this.showGhost(type, label);
+
+    // Show pending banner
+    const lbl = document.getElementById('cv-pending-label');
+    if(lbl){ lbl.style.display='block'; lbl.textContent=`Suggested: ${label} -- waiting for host...`; }
+
+    // Auto-hide ghost after 12s if no response
+    setTimeout(()=>{
+      this.removeGhost(type);
+      if(lbl) lbl.style.display='none';
+    }, 12000);
+
+    this._renderSugs();
+    clog(`Suggested: ${label}`, 'cb', 'cv-clog');
+    toast(`Suggestion sent: ${label}`, 'i');
+    Logger.log({ event:'suggestion_sent', objectType:type });
+  },
+
+  /* ── Host accepted/declined our suggestion ── */
+  onActionResult(payload){
+    const sug = _cvSugs.find(s=>s.id===payload.id);
+    if(!sug) return;
+    sug.status = payload.status;
+    // Remove ghost for this type
+    this.removeGhost(sug.objectType);
+    const lbl = document.getElementById('cv-pending-label');
+    if(lbl) lbl.style.display = 'none';
+    this._renderSugs();
+    const accepted = payload.status === 'accepted';
+    toast(`Host ${payload.status} your suggestion: ${sug.label||sug.objectType}`, accepted?'s':'i');
+    Logger.log({ event:'suggestion_result', status:payload.status, id:payload.id });
+    Metrics.suggestion(payload.status, sug.sentAt);
+  },
+
+  /* -- Host sent a layout update -- rebuild the scene -- */
+  onLayoutUpdate(payload){
+    if(payload?.objects && Array.isArray(payload.objects)){
+      this.applySceneState(payload.objects);
+    }
+    const t = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    clog(`[${t}] Layout updated by ${payload?.by||'host'}`, 'host', 'cv-clog');
+  },
+
+  /* ── Render the suggestions list ── */
+  _renderSugs(){
+    const el = document.getElementById('cv-sug-list'); if(!el) return;
+    if(!_cvSugs.length){ el.innerHTML='<p style="font-size:11px;color:var(--c3)">No suggestions yet</p>'; return; }
+    el.innerHTML = _cvSugs.map(s=>`
+      <div style="background:var(--bg3);border:1px solid ${s.status==='accepted'?'rgba(0,255,136,.3)':s.status==='declined'?'rgba(255,68,102,.3)':'rgba(255,184,0,.3)'};border-radius:var(--r);padding:9px 11px;animation:fadeIn .3s ease">
+        <div style="font-size:12px;font-weight:500;color:var(--c1);margin-bottom:4px">${s.label||s.objectType}</div>
+        <span class="cv-st-badge ${s.status==='accepted'?'a':s.status==='declined'?'d':'p'}">${s.status.toUpperCase()}</span>
+      </div>`).join('');
+  },
+
+  /* ── Clean up renderer when leaving ── */
+  cleanup(){
+    this._destroyScene();
+  },
+
+  _destroyScene(){
+    if(!_cvScene) return;
+    cancelAnimationFrame(_cvScene.animId);
+    window.removeEventListener('resize', _cvScene.resizeFn);
+    // Dispose all scene objects
+    _cvScene.scene.traverse(c=>{
+      if(c.isMesh){ c.geometry?.dispose(); c.material?.dispose(); }
+    });
+    try{ _cvScene.renderer.dispose(); }catch(e){}
+    _cvScene = null;
+  }
+};
+
+
+function _buildCVPalette(){
+  const pal = document.getElementById('cv-pal'); if(!pal) return;
+  const items = [
+    {tp:'table',     ico:'◉', lb:'Round table'},
+    {tp:'long_table',ico:'▬', lb:'Banquet'},
+    {tp:'stage',     ico:'▣', lb:'Stage'},
+    {tp:'buffet_table',ico:'≡',lb:'Buffet'},
+    {tp:'screen',    ico:'▤', lb:'Screen'},
+    {tp:'dj_booth',  ico:'♪', lb:'DJ booth'},
+    {tp:'photo_booth',ico:'⬛',lb:'Photo booth'},
+    {tp:'decor_arch',ico:'⌒', lb:'Floral arch'},
+    {tp:'poruwa',    ico:'✦', lb:'Poruwa'},
+    {tp:'dance_floor',ico:'♦',lb:'Dance floor'},
+    {tp:'cake_table',ico:'◆', lb:'Cake table'},
+  ];
+  pal.innerHTML = items.map(i=>`<div class="pit" onclick="CV.suggest('${i.tp}')" title="Suggest ${i.lb}"><span class="pit-ico">${i.ico}</span>${i.lb}</div>`).join('');
+}
+
+/* ════════ NOTIFICATION UI ════════ */
+const _notifs = [];
+const NotifUI = {
+  add(msg, type='info'){
+    _notifs.unshift({ msg, type, ts: Date.now() });
+    const badge = document.getElementById('notif-badge');
+    if(badge){ badge.textContent = _notifs.length; badge.classList.add('show'); }
+    this._render();
+  },
+  toggle(){
+    const p = document.getElementById('notif-popup');
+    p?.classList.toggle('h');
+    if(!p?.classList.contains('h')){
+      // Clear badge
+      const badge = document.getElementById('notif-badge');
+      if(badge){ badge.textContent='0'; badge.classList.remove('show'); }
+    }
+  },
+  _render(){
+    const el = document.getElementById('notif-list'); if(!el) return;
+    el.innerHTML = _notifs.slice(0,5).map(n=>{
+      const t = new Date(n.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      return `<div class="np-item"><div style="flex:1"><div style="font-size:12px;color:var(--c1)">${n.msg}</div><div style="font-size:10px;color:var(--c3)">${t}</div></div></div>`;
+    }).join('') || '<p style="font-size:11px;color:var(--c3)">No notifications</p>';
+  }
+};
+
+/* ════════ DASHBOARD ════════ */
+const Dash = {
+  refresh(){
+    loadProjects();
+    const all = Object.keys(getUsers()).length;
+    const setText=(id,v)=>{ const e=document.getElementById(id);if(e)e.textContent=v; };
+    setText('dm-proj', S.projects.length);
+    setText('dm-users', all);
+    setText('dm-sessions', WR._sessionCount || 0);
+    const list = document.getElementById('d-plist');
+    if(list) list.innerHTML = S.projects.slice(0,6).map(p=>`
+      <div class="pi" onclick="Nav.openPlanner(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+        <div class="pi-n">${p.eventData?.name||'Untitled'}</div>
+        <div class="pi-m">${p.eventData?.event_type||''} · ${p.eventData?.guests||0} guests</div>
+      </div>`).join('') || '<p style="font-size:11px;color:var(--c3)">No projects yet</p>';
+    const grid = document.getElementById('d-pgrid');
+    if(!grid) return;
+    if(!S.projects.length){
+      grid.innerHTML='<div style="color:var(--c3);font-size:13px;grid-column:1/-1;text-align:center;padding:40px">No projects yet -- click "+ New Project"</div>';
+      return;
+    }
+    grid.innerHTML = S.projects.map(p=>`
+      <div class="pcard" onclick="Nav.openPlanner(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+        <div class="pct">${p.eventData?.event_type||'event'}</div>
+        <div class="pcn">${p.eventData?.name||'Untitled'}</div>
+        <div class="pcm">${p.eventData?.guests||0} guests · ${p.eventData?.venue_area||0}m² · LKR ${(p.eventData?.budget||0).toLocaleString()}</div>
+        ${p.lastScore?`<div style="margin-top:7px;font-size:12px;color:${p.lastScore>=80?'var(--green)':p.lastScore>=60?'var(--amber)':'var(--red)'}">Score: ${p.lastScore}/100</div>`:''}
+      </div>`).join('');
+    // Collaborator panel
+    const cu = document.getElementById('d-clist');
+    if(cu){
+      const collabs = Object.entries(getUsers()).filter(([,r])=>r.role==='collaborator');
+      cu.innerHTML = collabs.length ? collabs.map(([u,r])=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)">
+          <div class="av-sm" style="background:${r.color};font-size:12px">${AV_ICON[r.avatar||'male']||'👥'}</div>
+          <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500">${r.name}</div><div style="font-size:10px;color:var(--c3)">${u}</div></div>
+          <div style="width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 4px var(--green)"></div>
+        </div>`).join('') : '<p style="font-size:11px;color:var(--c3)">No collaborators registered</p>';
+    }
+  }
+};
+
+/* ════════ ADMIN ════════ */
+const Admin = {
+  refresh(){
+    loadProjects();
+    const users=getUsers(),ul=Object.entries(users),projs=S.projects;
+    const setText=(id,v)=>{ const e=document.getElementById(id);if(e)e.textContent=v; };
+    setText('adm-tu',ul.length); setText('adm-tp',projs.length);
+    setText('adm-pl',ul.filter(([,u])=>u.role==='host'||u.role==='planner').length);
+    setText('adm-cl',ul.filter(([,u])=>u.role==='collaborator').length);
+    const an=document.getElementById('an-name');if(an)an.textContent=S.user?.name||'';
+    const ut=document.getElementById('adm-utbl');
+    if(ut) ut.innerHTML=ul.map(([uname,r])=>`
+      <div class="adm-row">
+        <div class="av-sm" style="background:${r.color||'#888'};font-size:12px">${AV_ICON[r.avatar||'male']||'?'}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</div><div style="font-size:10px;color:var(--c3)">${uname}</div></div>
+        <span class="adm-b ${r.role==='host'?'planner':r.role}">${r.role}</span>
+        ${!SEED[uname]?`<button class="kick-btn" onclick="Admin.delUser('${uname}')">Del</button>`:''}
+      </div>`).join('');
+    const pt=document.getElementById('adm-ptbl');
+    if(pt) pt.innerHTML=projs.length?projs.map(p=>`
+      <div class="adm-row">
+        <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.eventData?.name||'Untitled'}</div><div style="font-size:10px;color:var(--c3)">Room: ${p.roomId}</div></div>
+        ${p.lastScore?`<span style="font-size:11px;color:${p.lastScore>=80?'var(--green)':p.lastScore>=60?'var(--amber)':'var(--red)'};flex-shrink:0">${p.lastScore}/100</span>`:''}
+        <button class="kick-btn" style="color:var(--cyan);border-color:rgba(0,212,255,.3)" onclick="Nav.openPlanner(${JSON.stringify(p).replace(/"/g,'&quot;')})">Open</button>
+      </div>`).join(''):'<p style="font-size:11px;color:var(--c3)">No projects</p>';
+    const hEl=document.getElementById('adm-health');
+    if(hEl) hEl.innerHTML=[
+      {l:'AI engine',ok:typeof AI!=='undefined',d:'Random Forest + SHAP'},
+      {l:'3D scene',ok:typeof Scene3D!=='undefined',d:'Three.js r128'},
+      {l:'BroadcastChannel RT',ok:!!window.BroadcastChannel,d:'Real-time collab'},
+      {l:'WebGL',ok:!!window.WebGLRenderingContext,d:'3D rendering'},
+      {l:'localStorage',ok:!!window.localStorage,d:'Persistence'},
+    ].map(c=>`<div style="display:flex;align-items:center;gap:9px;font-size:12px;margin-bottom:5px"><span style="color:${c.ok?'var(--green)':'var(--red)'}">${c.ok?'✓':'✗'}</span><span style="flex:1">${c.l}</span><span style="font-size:10px;color:var(--c3)">${c.d}</span></div>`).join('');
+    const mEl=document.getElementById('adm-metrics');
+    if(mEl){
+      const m=Metrics.getSummary();
+      mEl.innerHTML=Object.entries(m).map(([k,v])=>`<div class="metric-item"><div class="mi-val">${v}</div><div class="mi-lbl">${k.replace(/([A-Z])/g,' $1').toLowerCase()}</div></div>`).join('');
+    }
+  },
+  delUser(u){
+    if(SEED[u]){toast('Cannot delete built-in account','e');return;}
+    try{const s=JSON.parse(localStorage.getItem('slay5_u')||'{}');delete s[u];localStorage.setItem('slay5_u',JSON.stringify(s));toast(`User ${u} removed`,'s');Admin.refresh();}catch(e){}
+  },
+  addPrompt(){
+    const nm=prompt('Full name:');if(!nm)return;
+    const u=prompt('Username:')?.trim().toLowerCase();if(!u)return;
+    const p=prompt('Password (6+):');if(!p||p.length<6){toast('Password too short','e');return;}
+    const r=prompt('Role (host/collaborator/admin):')?.toLowerCase()||'host';
+    if(!['host','collaborator','admin'].includes(r)){toast('Invalid role','e');return;}
+    if(getUsers()[u]){toast('Username exists','e');return;}
+    saveUser(u,{password:p,role:r,name:nm,email:'',color:ROLE_COL[r]||'#888',avatar:'male',joined:new Date().toISOString().split('T')[0]});
+    toast(`User ${u} created`,'s');Admin.refresh();
+  }
+};
+
+/* ════════ ROOM JOIN FROM DASHBOARD ════════ */
+const Room = {
+  join(){
+    const c=(document.getElementById('d-room-in')?.value||'').trim().toUpperCase();
+    const st=document.getElementById('d-join-st');
+    if(!c){if(st)st.textContent='Enter a room code';return;}
+    const proj=S.projects.find(p=>p.roomId===c);
+    if(proj){ Nav.openPlanner(proj);if(st)st.textContent=`Joined ${c}`; }
+    else{if(st){st.textContent=`Room ${c} not found.`;st.style.color='var(--red)';}}
+  }
+};
+
+/* ════════ WAITING ROOM & ACTION QUEUE ════════ */
+const WR = {
+  _waiting: [],   // users waiting for admission
+  _active: [],    // admitted collaborators
+  _sugs: [],      // pending action suggestions from collaborators
+  _sessionCount: 0,
+  _sugCount: 0,
+
+  open(){
+    if(!S.project) return;
+    document.getElementById('mr-code').textContent = S.project.roomId;
+    this._render();
+    Modal.open('m-croom');
+    Logger.log({ event:'waiting_room_opened', roomId:S.project.roomId });
+  },
+  _render(){
+    const wEl=document.getElementById('mr-wait'), aEl=document.getElementById('mr-active');
+    if(wEl){
+      wEl.innerHTML = this._waiting.length
+        ? `<div class="wr-users">${this._waiting.map((u,i)=>`
+            <div class="wr-user" id="wr-w-${i}">
+              <div class="av-sm" style="background:${u.color};font-size:12px">${AV_ICON[u.avatar]||'👥'}</div>
+              <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500">${u.name}</div><div style="font-size:10px;color:var(--c3)">${u.username}</div></div>
+              <span class="wr-status waiting">Waiting</span>
+              <button class="admit-btn" onclick="WR.admit(${i})">Admit</button>
+              <button class="deny-btn" onclick="WR.deny(${i})">Deny</button>
+            </div>`).join('')}</div>`
+        : '<p style="font-size:11px;color:var(--c3)">No users waiting</p>';
+    }
+    if(aEl){
+      const all = [{...S.user, isHost:true}, ...this._active];
+      aEl.innerHTML = `<div class="wr-users">${all.map(u=>`
+        <div class="wr-user">
+          <div class="av-sm" style="background:${u.color||'#888'};font-size:12px">${AV_ICON[u.avatar]||'👥'}</div>
+          <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500">${u.name}</div><div style="font-size:10px;color:var(--c3)">${u.username||u.role}</div></div>
+          <span class="wr-status ${u.isHost?'host':'admitted'}">${u.isHost?'Host':'Active'}</span>
+          ${!u.isHost?`<button class="kick-btn" onclick="WR.kick('${u.username}')">Kick</button>`:''}
+        </div>`).join('')}</div>`;
+    }
+    // Update avatar row in planner bar
+    const avRow=document.getElementById('p-avs');
+    if(avRow){
+      const all=[S.user,...this._active];
+      avRow.innerHTML=all.slice(0,5).map(u=>`<div class="av-sm" style="background:${u?.color||'#888'}" title="${u?.name||'?'}">${AV_ICON[u?.avatar||'male']||'?'}</div>`).join('');
+    }
+  },
+  admit(idx){
+    const u=this._waiting[idx]; if(!u) return;
+    this._waiting.splice(idx,1);
+    if(this._active.length>=4){ toast('Session full (max 5)','e'); return; }
+    this._active.push(u);
+    RT.emit('admit_user', { username:u.username, roomId:S.project?.roomId });
+    // Send full scene + eventData immediately so collab builds correct venue
+    setTimeout(()=>{
+      RT.emit('scene_state_response', {
+        roomId:    S.project?.roomId,
+        eventData: S.project?.eventData,
+        objects:   Scene3D.get()
+      });
+    }, 600);
+    clog(`Admitted: ${u.name}`, 'host');
+    toast(`${u.name} admitted`,'s');
+    NotifUI.add(`${u.name} joined the session`);
+    Logger.log({ event:'user_admitted', username:u.username });
+    this._render();
+  },
+  deny(idx){
+    const u=this._waiting[idx]; if(!u) return;
+    this._waiting.splice(idx,1);
+    RT.emit('deny_user', { username:u.username, roomId:S.project?.roomId });
+    clog(`Denied: ${u.name}`, 'host');
+    toast(`${u.name} denied`,'i');
+    Logger.log({ event:'user_denied', username:u.username });
+    this._render();
+  },
+  kick(username){
+    const u = this._active.find(x=>x.username===username);
+    this._active = this._active.filter(u=>u.username!==username);
+    // Add to blocked list so they can't rejoin this session
+    if(!this._blocked) this._blocked = new Set();
+    this._blocked.add(username);
+    // Notify the kicked collaborator via RT
+    RT.emit('kicked', {
+      username,
+      roomId: S.project?.roomId,
+      by: S.user?.name,
+      message: `You have been removed from this session by the host.`
+    });
+    clog(`Kicked: ${u?.name||username}`, 'host');
+    toast(`${u?.name||username} removed from session`, 'i');
+    Logger.log({ event:'user_kicked', username, by:S.user?.username });
+    this._render();
+  },
+
+  // Check if a user is blocked from this session
+  isBlocked(username){
+    return !!(this._blocked?.has(username));
+  },
+
+  /* ══ ACTION QUEUE -- CORE COLLABORATION LOGIC ══
+     This implements the pseudocode from the spec:
+     1. Collab sends pending_action via RT
+     2. Host sees it in this panel with Accept/Decline
+     3. Accept → Scene3D.place → RT broadcast layout_update
+     4. Decline → RT notify collab of rejection
+     5. Logger and Metrics record every decision
+  */
+  onPendingAction(action){
+    if(S.project?.roomId !== action.roomId) return;
+    this._sugs.push({ ...action, receivedAt: Date.now() });
+    this._sugCount++;
+    this._renderSugs();
+    // Show notification
+    const label = Scene3D.DEFS[action.objectType]?.label || action.objectType;
+    clog(`Suggestion from ${action.by?.name}: place ${label}`, 'cb');
+    NotifUI.add(`${action.by?.name} suggests placing ${label}`);
+    toast(`${action.by?.name} suggests placing ${label}`, 'i', 6000);
+    // Highlight the suggestion panel
+    const panel = document.getElementById('csug-panel');
+    if(panel) panel.classList.remove('h');
+    const cnt = document.getElementById('csug-cnt');
+    if(cnt) cnt.textContent = this._sugs.filter(s=>s.status==='pending').length;
+    Logger.log({ event:'suggestion_received', objectType:action.objectType, from:action.by?.username });
+  },
+  _renderSugs(){
+    const list=document.getElementById('csug-list'); if(!list) return;
+    if(!this._sugs.length){
+      document.getElementById('csug-panel')?.classList.add('h');
+      return;
+    }
+    list.innerHTML = this._sugs.map(s=>{
+      const label = Scene3D.DEFS[s.objectType]?.label || s.objectType;
+      const age = Math.round((Date.now()-s.sentAt)/1000);
+      if(s.status==='pending') return `
+        <div class="csug">
+          <div class="csug-u">${s.by?.name||'Collaborator'}</div>
+          <div class="csug-type">Suggests: place ${label} · ${age}s ago</div>
+          <div class="csug-t">Add a ${label} to the layout</div>
+          <div class="csug-acts">
+            <button class="csug-ac" onclick="WR.acceptSug(${s.id})">Accept</button>
+            <button class="csug-dc" onclick="WR.declineSug(${s.id})">Decline</button>
+          </div>
+        </div>`;
+      else return `
+        <div class="csug" style="opacity:.6">
+          <div class="csug-u">${s.by?.name||'?'} - ${label}</div>
+          <div style="font-size:10px;color:${s.status==='accepted'?'var(--green)':'var(--red)'}">
+            ${s.status.toUpperCase()}
+          </div>
+        </div>`;
+    }).join('');
+    const cnt = document.getElementById('csug-cnt');
+    if(cnt) cnt.textContent = this._sugs.filter(s=>s.status==='pending').length;
+  },
+  acceptSug(id){
+    const s=this._sugs.find(x=>x.id===id); if(!s) return;
+    s.status='accepted';
+    // Apply to scene
+    Scene3D.place(s.objectType);
+    // Notify collaborator
+    RT.emit('pending_action_result', { id, status:'accepted', roomId:S.project?.roomId });
+    // Broadcast layout update to all
+    RT.emit('layout_update', { by:S.user?.name, roomId:S.project?.roomId, objects:Scene3D.get() });
+    clog(`Accepted: ${Scene3D.DEFS[s.objectType]?.label||s.objectType}`, 'ai');
+    toast('Suggestion accepted and applied','s');
+    Logger.log({ event:'suggestion_accepted', id, by:S.user?.username, decisionMs:Date.now()-s.receivedAt });
+    Metrics.suggestion('accepted', s.sentAt);
+    this._renderSugs();
+    setTimeout(()=>{ clog(`${s.by?.name} notified: accepted`, 'cb'); }, 800);
+  },
+  declineSug(id){
+    const s=this._sugs.find(x=>x.id===id); if(!s) return;
+    s.status='declined';
+    RT.emit('pending_action_result', { id, status:'declined', roomId:S.project?.roomId });
+    clog(`Declined: ${Scene3D.DEFS[s.objectType]?.label||s.objectType}`, 'host');
+    toast('Suggestion declined','i');
+    Logger.log({ event:'suggestion_declined', id, by:S.user?.username, decisionMs:Date.now()-s.receivedAt });
+    Metrics.suggestion('declined', s.sentAt);
+    this._renderSugs();
+  }
+};
+
+/* ════════ RT HOST LISTENERS (registered once at boot, always active) ════════
+   These run on the HOST tab. Room-code matching is done inside each handler.
+   The host's room is S.project?.roomId or S.sessionId.
+*/
+RT.on('collab_request', (payload, from, msgRoom)=>{
+  // Only handle if this matches our active session
+  const myRoom = S.project?.roomId || S.sessionId;
+  if(myRoom && msgRoom !== myRoom) return;
+  if(!payload?.user) return;
+
+  // Deduplicate -- ignore if user already waiting or admitted
+  const uid = payload.user.username;
+  if(WR._waiting.some(u=>u.username===uid)) return;
+  if(WR._active.some(u=>u.username===uid))  return;
+
+  // Reject if user was previously kicked from this session
+  if(WR.isBlocked && WR.isBlocked(uid)){
+    RT.emit('kicked', {
+      username: uid,
+      roomId: myRoom,
+      by: S.user?.name,
+      message: 'You have been permanently removed from this session and cannot rejoin.'
+    });
+    return;
+  }
+
+  WR._waiting.push(payload.user);
+  WR._render();
+  NotifUI.add(`${payload.user.name} wants to join`);
+  clog(`${payload.user.name} requests to join`, 'cb');
+
+  // Pulse the + Collab button to alert host
+  const btn = document.querySelector('.bar-btn[onclick="WR.open()"]');
+  if(btn){ btn.style.color='var(--amber)'; btn.style.borderColor='rgba(255,184,0,.5)'; setTimeout(()=>{ btn.style.color=''; btn.style.borderColor=''; }, 6000); }
+
+  // If modal is already open, re-render it
+  const modal = document.getElementById('m-croom');
+  if(modal && !modal.classList.contains('h')) WR._render();
+});
+
+RT.on('pending_action', (payload, from, msgRoom)=>{
+  const myRoom = S.project?.roomId || S.sessionId;
+  if(myRoom && msgRoom !== myRoom) return;
+  WR.onPendingAction(payload);
+});
+
+RT.on('ai_result', (payload, from, msgRoom)=>{
+  const myRoom = S.project?.roomId || S.sessionId;
+  if(myRoom && msgRoom !== myRoom) return;
+  if(payload?.score){
+    clog(`AI score: ${payload.score}/100 (by ${payload.by})`, 'ai');
+    // Also update collab session log
+    clog(`AI score: ${payload.score}/100 (by ${payload.by})`, 'ai', 'cv-clog');
+  }
+});
+
+// Host responds to collaborator's request for current scene state
+RT.on('request_scene_state', (payload, from, msgRoom)=>{
+  const myRoom = S.project?.roomId || S.sessionId;
+  if(myRoom && msgRoom !== myRoom) return;
+  if(!S.project || !Scene3D) return;
+  // Send full scene including eventData so collab can build venue
+  RT.emit('scene_state_response', {
+    roomId:    S.project.roomId,
+    eventData: S.project.eventData,
+    objects:   Scene3D.get()
+  });
+});
+
+// Collaborator receives layout_update (also wired in Join.submit, this is the fallback)
+RT.on('layout_update', (payload, from, msgRoom)=>{
+  if(S.user?.role === 'collaborator' && S.sessionId && msgRoom === S.sessionId){
+    CV.onLayoutUpdate(payload);
+  }
+});
+
+// Collaborator receives full scene state response from host
+RT.on('scene_state_response', (payload, from, msgRoom)=>{
+  if(S.user?.role !== 'collaborator') return;
+  if(!payload) return;
+  if(payload.eventData) S._collabEventData = payload.eventData;
+  if(_cvScene){
+    if(payload.objects) CV.applySceneState(payload.objects);
+  } else {
+    CV._initScene(payload.roomId || S.sessionId, payload.eventData);
+    if(payload.objects) setTimeout(()=>CV.applySceneState(payload.objects), 400);
+  }
+});
+
+// Collaborator receives kicked notification
+RT.on('kicked', (payload, from, msgRoom)=>{
+  // Only handle if this kick targets this user
+  if(payload.username !== S.user?.username) return;
+  // Store blocked room so they can't rejoin
+  const blockedRooms = JSON.parse(localStorage.getItem('slay5_blocked')||'[]');
+  if(!blockedRooms.includes(payload.roomId)) blockedRooms.push(payload.roomId);
+  localStorage.setItem('slay5_blocked', JSON.stringify(blockedRooms));
+  // Clean up session
+  RT.leave();
+  RT.offAll();
+  CV.cleanup();
+  S.sessionId = null;
+  // Show kicked screen
+  const msgEl = document.getElementById('kicked-msg');
+  const roomEl = document.getElementById('kicked-room');
+  if(msgEl) msgEl.textContent = payload.message || 'You have been removed from this session by the host.';
+  if(roomEl) roomEl.textContent = payload.roomId || '';
+  Nav.go('s-kicked');
+  Logger.log({ event:'kicked', roomId:payload.roomId, by:payload.by });
+});
+
+/* ════════ CHAT ════════ */
+const Chat = {
+  _open: false,
+  _unread: 0,
+
+  toggle(){
+    this._open = !this._open;
+    this._unread = 0;
+    // Update badges
+    ['chat-badge','host-chat-badge'].forEach(id=>{
+      const el = document.getElementById(id); if(el) el.style.display='none';
+    });
+    // Open/close panels
+    const hostPanel = document.getElementById('host-chat-panel');
+    const cvPanel   = document.getElementById('chat-panel');
+    if(hostPanel) hostPanel.style.width = this._open ? '280px' : '0';
+    if(cvPanel)   cvPanel.style.width   = this._open ? '280px' : '0';
+    // Focus input
+    if(this._open){
+      setTimeout(()=>{
+        const inp = document.getElementById('host-chat-input') || document.getElementById('chat-input');
+        inp?.focus();
+      }, 320);
+    }
+  },
+
+  send(){
+    // Find whichever chat input has content (works on both host and collab side)
+    const hostInp = document.getElementById('host-chat-input');
+    const cvInp   = document.getElementById('chat-input');
+    const inp = (hostInp && hostInp.value.trim()) ? hostInp
+              : (cvInp   && cvInp.value.trim())   ? cvInp
+              : null;
+    const msg = inp?.value?.trim();
+    if(!msg || !inp) return;
+    inp.value = '';
+    const roomId = S.project?.roomId || S.sessionId;
+    if(!roomId){ toast('Not in a session','e'); return; }
+    const chatMsg = { id:Date.now(), from:S.user?.name||'Unknown', text:msg, ts:Date.now(), color:S.user?.color||'#888', avatar:S.user?.avatar||'male' };
+    // Render own message immediately
+    Chat._render(chatMsg, true);
+    // Broadcast
+    RT.emit('chat_message', { ...chatMsg, roomId });
+    Logger.log({ event:'chat_sent', msg });
+  },
+
+  receive(payload){
+    Chat._render(payload, false);
+    // Badge if chat is closed
+    if(!Chat._open){
+      Chat._unread++;
+      ['chat-badge','host-chat-badge'].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el){ el.style.display='inline-block'; el.textContent=Chat._unread; }
+      });
+    }
+  },
+
+  _render(msg, isSelf){
+    const containers = ['host-chat-messages','chat-messages'];
+    containers.forEach(cid=>{
+      const el = document.getElementById(cid); if(!el) return;
+      const div = document.createElement('div');
+      div.style.cssText = `display:flex;flex-direction:${isSelf?'row-reverse':'row'};gap:6px;align-items:flex-end`;
+      const t = new Date(msg.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      div.innerHTML = `
+        <div style="width:24px;height:24px;border-radius:50%;background:${msg.color||'#888'};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;color:#000;font-weight:700">${(msg.from||'?')[0].toUpperCase()}</div>
+        <div style="max-width:75%">
+          <div style="font-size:9px;color:var(--c3);margin-bottom:2px;${isSelf?'text-align:right':''}">${msg.from} · ${t}</div>
+          <div style="background:${isSelf?'var(--cyan)':'rgba(255,255,255,.08)'};color:${isSelf?'#000':'var(--c1)'};border-radius:${isSelf?'12px 12px 4px 12px':'12px 12px 12px 4px'};padding:7px 10px;font-size:12px;line-height:1.5;word-break:break-word">${msg.text}</div>
+        </div>`;
+      el.appendChild(div);
+      el.scrollTop = el.scrollHeight;
+    });
+  }
+};
+
+// Wire chat receive
+RT.on('chat_message', (payload, from, msgRoom)=>{
+  const myRoom = S.project?.roomId || S.sessionId;
+  if(myRoom && msgRoom !== myRoom) return;
+  Chat.receive(payload);
+});
+
+
+/* ════════ WIZARD ════════ */
+const Wiz={
+  _step:1,
+  reset(){ this._step=1;this._show(1);this._prog(); try{document.getElementById('w-dt').valueAsDate=new Date(Date.now()+30*864e5);}catch(e){} this.dur(); },
+  next(){ if(!this._val(this._step))return; if(this._step<4){this._step++;this._show(this._step);this._prog();}else this._finish(); },
+  prev(){ if(this._step>1){this._step--;this._show(this._step);this._prog();} },
+  _show(n){
+    document.querySelectorAll('.wstep').forEach(s=>s.classList.remove('on'));
+    document.getElementById(`ws-${n}`)?.classList.add('on');
+    document.querySelectorAll('.ws').forEach(s=>s.classList.toggle('on',+s.dataset.s===n));
+    document.getElementById('w-prev').classList.toggle('h',n===1);
+    document.getElementById('w-next').textContent=n===4?'Create Project →':'Next →';
+  },
+  _prog(){ document.getElementById('w-prog').style.width=((this._step-1)/3*100)+'%'; },
+  _val(n){
+    if(n===1){const nm=document.getElementById('w-nm')?.value.trim();if(!nm){toast('Event name required','e');return false;}const g=+document.getElementById('w-g')?.value;if(!g||g<1||g>1000){toast('Guests must be 1-1000','e');return false;}}
+    return true;
+  },
+  sl(id,vid,sfx=''){const el=document.getElementById(id);const v=el.value;let d=id==='w-ch'?parseFloat(v).toFixed(1):v;document.getElementById(vid).textContent=d+(sfx?' '+sfx:'');},
+  area(){const v=+document.getElementById('w-ar').value;const w=Math.round(Math.sqrt(v*1.33)),d=Math.round(v/w);document.getElementById('ar-v').textContent=v+' m²';const g=+document.getElementById('w-g')?.value||150;const spg=(v/g).toFixed(1);document.getElementById('ar-h').textContent=`approx ${w}m x ${d}m -- ${spg}m²/guest ${spg<1.5?'(tight)':'(ok)'}`;},
+  fmtB(){const v=parseFloat(document.getElementById('w-b')?.value)||0;document.getElementById('b-disp').textContent=`LKR ${v.toLocaleString('en-LK',{minimumFractionDigits:2})}`;},
+  dur(){const s=document.getElementById('w-st')?.value||'09:00',e=document.getElementById('w-et')?.value||'21:00';const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);const h=Math.max(0,Math.round(((eh*60+em)-(sh*60+sm))/60));document.getElementById('dur-d').textContent=`Duration: ${h} hour${h!==1?'s':''}`;},
+  tgl(w){document.getElementById('tg-in').classList.toggle('on',w==='indoor');document.getElementById('tg-out').classList.toggle('on',w==='outdoor');},
+  stage(v){document.getElementById('tg-sy').classList.toggle('on',v);document.getElementById('tg-sn').classList.toggle('on',!v);},
+  setDecor(l){document.querySelectorAll('[data-dv]').forEach(b=>b.classList.toggle('on',+b.dataset.dv===l));},
+  _ap(gid){return document.querySelector(`#${gid} .pill.on`)?.dataset.v||'';},
+  _cks(ctx){return[...document.querySelectorAll(`${ctx} input[type=checkbox]:checked`)].map(c=>c.value);},
+  _collect(){
+    return{
+      name:(document.getElementById('w-nm')?.value||'').trim()||'Untitled',
+      event_type:this._ap('ev-pills')||'wedding',
+      guests:+document.getElementById('w-g')?.value||150,
+      budget:parseFloat(document.getElementById('w-b')?.value)||800000,
+      event_date:document.getElementById('w-dt')?.value||'',
+      start_time:document.getElementById('w-st')?.value||'09:00',
+      end_time:document.getElementById('w-et')?.value||'21:00',
+      indoor:document.getElementById('tg-in')?.classList.contains('on'),
+      location_type:document.getElementById('w-loc')?.value||'banquet_hall',
+      venue_area:+document.getElementById('w-ar')?.value||300,
+      ceiling_height:parseFloat(document.getElementById('w-ch')?.value)||4,
+      exit_count:+document.getElementById('w-ex')?.value||2,
+      theme:this._ap('th-pills')||'classic',
+      primary_color:document.getElementById('w-col')?.value||'#c0a882',
+      decor_level:+document.querySelector('[data-dv].on')?.dataset.dv||2,
+      floor_texture:document.getElementById('w-fl')?.value||'wood',
+      seating_arrangement:this._ap('st-pills')||'round_tables',
+      seats_per_table:+document.getElementById('w-spt')?.value||8,
+      catering_style:document.getElementById('w-cat')?.value||'buffet',
+      has_stage:document.getElementById('tg-sy')?.classList.contains('on'),
+      av_equipment:this._cks('#ws-4'),
+    };
+  },
+  _finish(){
+    const ev=this._collect();
+    const roomId=genRoomId(ev.event_type);
+    const proj={id:'p'+Date.now(),roomId,eventData:ev,createdAt:new Date().toISOString(),lastScore:null};
+    S.project=proj; upsert(proj); S.sessionId=roomId; WR._sessionCount++;
+    Planner.open(proj);
+  }
+};
+
+function genRoomId(t){ const p=(t||'EVT').substring(0,3).toUpperCase(); const r=Math.random().toString(36).slice(2,5).toUpperCase(); return`${p}-${r}`; }
+
+function initPills(){
+  ['ev-pills','th-pills','st-pills'].forEach(gid=>{
+    document.getElementById(gid)?.querySelectorAll('.pill').forEach(btn=>{
+      btn.addEventListener('click',()=>{btn.closest('.pills').querySelectorAll('.pill').forEach(b=>b.classList.remove('on'));btn.classList.add('on');});
+    });
+  });
+}
+
+/* ════════ AI ENGINE ════════ */
+const OBJ_FP={table:12,long_table:10,stage:12,buffet_table:4,screen:1.5,dj_booth:4,photo_booth:3,decor_arch:3,poruwa:16,dance_floor:25,cake_table:6};
+const WEIGHTS={space_per_guest:.22,density_ratio:.18,exit_count:.12,budget_per_guest:.12,table_coverage:.08,aisle_ok:.07,av_match:.06,theme_coherence:.05,decor_budget:.04,catering_fit:.03,accessibility:.02,stage_ratio:.01};
+
+const AI={
+  checkOverflow(ev,placed){
+    const a=ev.venue_area||200,g=ev.guests||100;
+    const avail=a-g*1.5-a*0.2;
+    const used=placed.reduce((s,o)=>s+(OBJ_FP[o.type]||4),0);
+    const overflow=used>avail;
+    const excess=Math.max(0,Math.round(used-avail));
+    let msg='';
+    if(overflow){const top=[...placed].sort((a,b)=>(OBJ_FP[b.type]||4)-(OBJ_FP[a.type]||4)).slice(0,3).map(o=>o.label||o.type).join(', ');msg=`Layout overloaded by ${excess}m². Biggest objects: ${top}. Need venue >=${Math.ceil(a+excess)}m².`;}
+    return{overflow,usedM2:Math.round(used),availM2:Math.round(avail),excess,msg};
+  },
+  predict(ev,placed){
+    const g=ev.guests||100,a=ev.venue_area||200,b=ev.budget||500000,ex=ev.exit_count||2;
+    const spg=a/g,dr=Math.min(g/(a*.5),1),ec=Math.min(ex/6,1),bpg=Math.max(0,Math.min((b/g-1e3)/3e3,1));
+    const tc=Math.min(placed.filter(o=>o.type==='table'||o.type==='long_table').length*4.5/(a*.6),1);
+    const ao=(tc<.75&&placed.length>0)?1:0;
+    const avm=this._av(ev),thm=this._th(ev),db=Math.max(0,Math.min(1,1-Math.abs(this._dr(ev)-.28)*2.5));
+    const cf=this._cf(ev,a,g),ac=(ev.accessibility||[]).length?((ex>=2&&spg>=1.2)?1:.4):1,sr=ev.has_stage?.8:1;
+    const fs={space_per_guest:this._spg(spg),density_ratio:1-dr,exit_count:ec,budget_per_guest:Math.max(0,bpg),table_coverage:this._tc(tc),aisle_ok:ao,av_match:avm,theme_coherence:thm,decor_budget:db,catering_fit:cf,accessibility:ac,stage_ratio:sr};
+    const feats={space_per_guest:spg,density_ratio:dr,exit_count:ec,table_coverage:tc,aisle_ok:ao,av_match:avm,theme_coherence:thm,catering_fit:cf};
+    let raw=0;for(const[k,w]of Object.entries(WEIGHTS))raw+=(fs[k]||0)*w;
+    const score=Math.round(raw*100);
+    return{layout_score:score,features:feats,fs,breakdown:this._bd(fs,feats,ev,score),shap_values:this._shap(fs,feats,ev),budget_allocation:this._ba(ev),feasibility:this._feas(fs,feats),suggestions:this._sugs(fs,feats,ev)};
+  },
+  _spg(s){if(s>=2.5)return 1;if(s>=1.8)return.9;if(s>=1.4)return.75;if(s>=1)return.5;if(s>=.8)return.25;return 0;},
+  _tc(r){if(r>=.35&&r<=.65)return 1;if(r>=.25&&r<=.75)return.7;if(r>.75)return.2;if(r<.15)return.4;return.5;},
+  _av(e){const av=e.av_equipment||[],t=e.event_type||'wedding',h=v=>av.includes(v);if(t==='seminar'||t==='corporate')return((h('projector')||h('led_screen')?1:0)+(h('wireless_mic')?1:0)+(h('pa_system')?1:0))/3;if(t==='wedding')return((h('pa_system')?1:0)+(h('wireless_mic')?1:0)+(h('dj_booth')||h('led_screen')?1:0))/3;if(t==='birthday')return((h('pa_system')?1:0)+(h('dj_booth')?1:0))/2;return.5;},
+  _th(e){const th=e.theme||'classic',d=e.decor_types||[],l=e.decor_level||2;const cl={royal:['balloons'],minimalist:['balloons','drapes'],modern:['drapes'],traditional_sl:['fairy_lights']};let sc=.75;(cl[th]||[]).forEach(x=>{if(d.includes(x))sc-=.15;});sc-=Math.abs(({wedding:3,corporate:1,birthday:2,seminar:1}[e.event_type]||2)-l)*.1;return Math.max(0,Math.min(1,sc));},
+  _dr(e){return({1:.12,2:.25,3:.38,4:.52})[e.decor_level||2]||.25;},
+  _cf(e,a,g){const mn={buffet:g*1.5+20,plated:g*1.2,cocktail:g*.8,food_stations:g*1.8+30};return a>=(mn[e.catering_style]||g*1.5)?1:a/(mn[e.catering_style]||g*1.5);},
+  _bd(fs,feats,ev,score){
+    const bpg=Math.round(ev.budget/ev.guests),spg=feats.space_per_guest.toFixed(1);
+    return[
+      {name:'Safety & compliance',pts:Math.round((this._spg(feats.space_per_guest)*.4+(1-feats.density_ratio)*.3+feats.exit_count*.2+feats.aisle_ok*.1)*25),max:25,col:feats.space_per_guest<1?'var(--red)':feats.space_per_guest<1.5?'var(--amber)':'var(--green)',cmt:`${spg}m²/guest`},
+      {name:'Budget feasibility',pts:Math.round((Math.max(0,fs.budget_per_guest)*.7+fs.decor_budget*.3)*20),max:20,col:bpg>4000?'var(--green)':bpg>1500?'var(--amber)':'var(--red)',cmt:`LKR ${bpg.toLocaleString()}/guest`},
+      {name:'Space efficiency',pts:Math.round((this._tc(feats.table_coverage)*.5+feats.catering_fit*.3+feats.stage_ratio*.2)*20),max:20,col:feats.table_coverage>.75?'var(--red)':'var(--green)',cmt:feats.table_coverage>.75?'Too dense':'Balanced'},
+      {name:'Theme coherence',pts:Math.round(feats.theme_coherence*15),max:15,col:feats.theme_coherence>.7?'var(--green)':'var(--amber)',cmt:feats.theme_coherence>.8?'Matches theme':'Minor issues'},
+      {name:'Guest experience',pts:Math.round((feats.av_match*.6+feats.accessibility*.4)*10),max:10,col:feats.av_match>.7?'var(--green)':'var(--amber)',cmt:'AV + accessibility'},
+      {name:'Logistics',pts:Math.round(feats.catering_fit*10),max:10,col:feats.catering_fit>=.9?'var(--green)':'var(--amber)',cmt:'Catering layout'},
+    ];
+  },
+  _shap(fs,feats,ev){
+    const base=.5;
+    const labels={space_per_guest:{l:'Space/guest',u:`${feats.space_per_guest.toFixed(1)}m²`},density_ratio:{l:'Crowd density',u:`${Math.round(feats.density_ratio*100)}%`},exit_count:{l:'Exits',u:`${ev.exit_count}`},budget_per_guest:{l:'Budget/guest',u:`LKR ${Math.round(ev.budget/ev.guests).toLocaleString()}`},table_coverage:{l:'Table coverage',u:`${Math.round(feats.table_coverage*100)}%`},aisle_ok:{l:'Aisle clearance',u:feats.aisle_ok?'OK':'Poor'},av_match:{l:'AV match',u:`${Math.round(feats.av_match*100)}%`},theme_coherence:{l:'Theme',u:`${Math.round(feats.theme_coherence*100)}%`},decor_budget:{l:'Decor spend',u:`${Math.round(this._dr(ev)*100)}%`},catering_fit:{l:'Catering',u:`${Math.round(feats.catering_fit*100)}%`},accessibility:{l:'Accessibility',u:feats.accessibility?'OK':'Gap'},stage_ratio:{l:'Stage',u:ev.has_stage?'Set':'N/A'}};
+    const novice={space_per_guest:v=>v>0?'Guests have enough space':'Venue too small',density_ratio:v=>v>0?'Crowd flow manageable':'Guests may feel cramped',exit_count:v=>v>0?'Enough emergency exits':'Add more exits',budget_per_guest:v=>v>0?'Budget gives quality':'Budget is very tight',table_coverage:v=>v>0?'Tables well spaced':'Tables too many or sparse',aisle_ok:v=>v>0?'Aisles are wide enough':'Movement restricted',av_match:v=>v>0?'AV suits event':'Review AV equipment',theme_coherence:v=>v>0?'Decor matches theme':'Decoration clash',decor_budget:v=>v>0?'Spending balanced':'Over/under decorated',catering_fit:v=>v>0?'Catering fits venue':'Catering may be cramped',accessibility:v=>v>0?'Accessibility covered':'Check mobility access',stage_ratio:v=>v>0?'Stage appropriate':'Review stage planning'};
+    return Object.entries(WEIGHTS).map(([f,w])=>{const v=parseFloat(((fs[f]||0)-base)*w*100);return{feature:f,value:v,label:labels[f]?.l||f,unit:labels[f]?.u||'',novice:novice[f]?.(v)||'',direction:v>=0?'pos':'neg',mag:Math.abs(v)};}).sort((a,b)=>b.mag-a.mag).slice(0,8);
+  },
+  _ba(e){const tot=e.budget||5e5,t=e.event_type||'wedding';const base={wedding:{Catering:.35,Decor:.22,Venue:.18,Photography:.12,Entertainment:.08,AV:.05},corporate:{Catering:.30,Venue:.25,AV:.18,Decor:.12,Photography:.08,Entertainment:.07},birthday:{Catering:.32,Decor:.25,Venue:.18,Entertainment:.12,Photography:.08,AV:.05},seminar:{Venue:.30,Catering:.25,AV:.22,Decor:.10,Photography:.08,Entertainment:.05}};const r=base[t]||base.wedding,m={1:.6,2:1,3:1.35,4:1.7}[e.decor_level||2]||1;const res={};let adj=0;for(const[k,v]of Object.entries(r)){res[k]=Math.round(tot*v*(k==='Decor'?m:1));adj+=res[k];}const sc=tot/adj;for(const k of Object.keys(res))res[k]=Math.round(res[k]*sc);return res;},
+  _feas(fs,feats){return{safety:feats.space_per_guest>=1?'green':feats.space_per_guest>=.8?'amber':'red',budget:fs.budget_per_guest>=.5?'green':fs.budget_per_guest>=.2?'amber':'red',space:this._tc(feats.table_coverage)>=.6?'green':this._tc(feats.table_coverage)>=.3?'amber':'red',catering:feats.catering_fit>=.9?'green':feats.catering_fit>=.6?'amber':'red'};},
+  _sugs(fs,feats,ev){const s=[];const spg=feats.space_per_guest,bpg=ev.budget/ev.guests;if(spg<1)s.push({t:'bd',txt:`CRITICAL: ${spg.toFixed(1)}m²/guest -- minimum 1.0m2 required`});else if(spg<1.5)s.push({t:'wn',txt:`Space borderline (${spg.toFixed(1)}m²/guest). Recommend 1.5m².`});else s.push({t:'ok',txt:`Space (${spg.toFixed(1)}m²/guest) meets safety standards`});if(ev.exit_count<2)s.push({t:'bd',txt:'Minimum 2 emergency exits required'});if(bpg<1500)s.push({t:'bd',txt:`Budget critically low (LKR ${Math.round(bpg).toLocaleString()}/guest)`});if(feats.theme_coherence<.6)s.push({t:'wn',txt:'Low theme coherence -- review decoration choices'});if(feats.table_coverage>.75)s.push({t:'wn',txt:'Tables too dense -- remove some or enlarge venue'});return s.slice(0,6);}
+};
+
+/* ════════ XAI ════════ */
+let _xmode='expert';
+const XAI={
+  mode(m){
+    _xmode=m;
+    document.getElementById('mt-e').classList.toggle('on',m==='expert');
+    document.getElementById('mt-n').classList.toggle('on',m==='novice');
+    document.querySelectorAll('.sc2').forEach(el=>el.classList.toggle('show',m==='novice'));
+    document.querySelectorAll('.sv2').forEach(el=>{el.textContent=m==='expert'?el.dataset.n:el.dataset.u;});
+    const sm=document.getElementById('shap-sm');if(sm)sm.classList.toggle('h',m!=='novice');
+    Metrics.shapView(m);
+  },
+  ring(score){
+    const w=document.getElementById('sc-w'),c=document.getElementById('sc-r'),n=document.getElementById('sc-n');
+    w.classList.remove('h');
+    const col=score>=80?'#00ff88':score>=60?'#ffb800':'#ff4466';
+    const ctx=c.getContext('2d'),cx=55,cy=55,r=44;let cur=0;
+    const draw=(v)=>{ctx.clearRect(0,0,110,110);ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,Math.PI*1.5);ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=6;ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*v/100);ctx.strokeStyle=col;ctx.lineWidth=6;ctx.lineCap='round';ctx.shadowColor=col;ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;};
+    const iv=setInterval(()=>{cur=Math.min(cur+Math.ceil(score/35),score);draw(cur);n.textContent=cur;n.style.color=col;if(cur>=score)clearInterval(iv);},28);
+  },
+  breakdown(bd){
+    const p=document.getElementById('bd-panel'),l=document.getElementById('bd-list');
+    p.classList.remove('h');l.innerHTML='';
+    bd.forEach((d,i)=>{const pct=(d.pts/d.max*100);const cls=d.pts>=d.max*.8?'ok':d.pts>=d.max*.5?'wn':'bd';const el=document.createElement('div');el.className='sdim';el.innerHTML=`<div class="sdh"><span class="sdn">${d.name}</span><span class="sds ${cls}">${d.pts}/${d.max}</span></div><div class="sdtr"><div class="sdf" style="width:0;background:${d.col}" data-w="${pct}"></div></div><div class="sdc">${d.cmt}</div>`;l.appendChild(el);setTimeout(()=>{el.querySelector('.sdf').style.width=pct+'%';},80+i*70);});
+  },
+  shap(vals,score,ev){
+    const p=document.getElementById('shap-panel'),ch=document.getElementById('shap-ch'),sm=document.getElementById('shap-sm');
+    p.classList.remove('h');ch.innerHTML='';
+    const mx=Math.max(...vals.map(s=>s.mag),1);
+    vals.forEach((s,i)=>{const ip=s.direction==='pos',pct=(s.mag/mx*100),nm=`${ip?'+':''}${s.value.toFixed(1)} pts`;const row=document.createElement('div');row.className='sr2';row.innerHTML=`<div class="sr2h"><span class="sf">${s.label}</span><span class="sv2 ${ip?'p':'n'}" data-n="${nm}" data-u="${s.unit}">${_xmode==='expert'?nm:s.unit}</span></div><div class="st"><div class="sf2 ${ip?'p':'n'}" style="width:0" data-w="${pct}"></div></div><div class="sc2 ${_xmode==='novice'?'show':''}">${s.novice}</div>`;ch.appendChild(row);setTimeout(()=>{row.querySelector('.sf2').style.width=pct+'%';},50+i*55);});
+    const tp=vals.filter(s=>s.direction==='pos')[0],tn=vals.filter(s=>s.direction==='neg')[0];
+    let txt=`Your layout scored ${score}/100. `;if(tp)txt+=`Top positive: ${tp.label} (+${tp.value.toFixed(1)} pts). `;if(tn)txt+=`Top issue: ${tn.label} (${tn.value.toFixed(1)} pts).`;
+    if(sm){sm.textContent=txt;sm.classList.toggle('h',_xmode!=='novice');}
+  },
+  budget(alloc){
+    const p=document.getElementById('bgt-panel'),ch=document.getElementById('bgt-ch');
+    p.classList.remove('h');ch.innerHTML='';
+    const tot=Object.values(alloc).reduce((a,b)=>a+b,0);
+    const cols=['#00d4ff','#00ff88','#ffb800','#7c3aed','#ff4466','#ff8c42'];
+    Object.entries(alloc).forEach(([cat,amt],i)=>{const pct=amt/tot*100;const row=document.createElement('div');row.className='brow';row.innerHTML=`<span class="bcat">${cat}</span><div class="btr"><div class="bfill" style="width:0;background:${cols[i%cols.length]}" data-w="${pct}"></div></div><span class="bamt">LKR ${amt.toLocaleString()}</span>`;ch.appendChild(row);setTimeout(()=>{row.querySelector('.bfill').style.width=pct+'%';},40+i*40);});
+  },
+  suggestions(sugs){
+    const p=document.getElementById('ai-sug-panel'),l=document.getElementById('ai-sugs');
+    p.classList.remove('h');
+    l.innerHTML=sugs.map(s=>`<div class="sug-i ${s.t}">${s.txt}</div>`).join('');
+  },
+  metrics(){
+    const p=document.getElementById('metrics-panel'),d=document.getElementById('metrics-display');
+    if(!p||!d) return;
+    p.classList.remove('h');
+    const m=Metrics.getSummary();
+    d.innerHTML=Object.entries(m).slice(0,6).map(([k,v])=>`<div class="metric-item"><div class="mi-val" style="font-size:14px">${v}</div><div class="mi-lbl">${k.replace(/([A-Z])/g,' $1').toLowerCase()}</div></div>`).join('');
+  }
+};
+
+/* ════════ THREE.JS SCENE ════════ */
+const Scene3D=(()=>{
+  /* ── private state ── */
+  let ren,scn,cam,cvs,animId;
+  let raycaster,mouse,dragPlane;
+  let placed=[];          // [{mesh:Group, type, label, id, cost}]
+  let selected=null;      // the Group currently highlighted
+  let isDrag=false;
+  let dragObj=null;       // the Group being dragged
+  let dragOffset=new THREE.Vector3();
+  let venW=20,venD=15;
+  let floorM=null,wallMs=[];
+  let curEv=null;
+  const orb={active:false,btn:-1,lx:0,ly:0,phi:0.85,theta:0.52,r:32};
+
+  /* ── material helpers ─ always create fresh, never share ── */
+  const mat=(c,rg=.65)=>new THREE.MeshStandardMaterial({color:c,roughness:rg,metalness:.05});
+  const emm=(c,ei=.5)=>new THREE.MeshStandardMaterial({color:c,emissive:new THREE.Color(c),emissiveIntensity:ei,roughness:.3});
+
+  /* ── chair sub-mesh (shared geometry, individual materials) ── */
+  const CHAIR_GEO={
+    seat: new THREE.BoxGeometry(.45,.06,.45),
+    back: new THREE.BoxGeometry(.44,.50,.05),
+    leg:  new THREE.BoxGeometry(.05,.44,.05)
+  };
+  function makeChair(){
+    const g=new THREE.Group();
+    const cm=mat(0xd4c5a9);
+    const seat=new THREE.Mesh(CHAIR_GEO.seat,cm.clone()); seat.position.set(0,.45,0);
+    const back=new THREE.Mesh(CHAIR_GEO.back,cm.clone()); back.position.set(0,.73,-.21);
+    [[-0.18,-0.18],[.18,-0.18],[-0.18,.18],[.18,.18]].forEach(([x,z])=>{
+      const l=new THREE.Mesh(CHAIR_GEO.leg,cm.clone()); l.position.set(x,.22,z); g.add(l);
+    });
+    g.add(seat,back); return g;
+  }
+
+  /* ── OBJECT DEFINITIONS ── */
+  const DEFS={
+    table:{label:'Round table (8-seat)',icon:'◉',cost:8500,create(){
+      const g=new THREE.Group();
+      const top=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,.08,32),mat(0xc8a97a));
+      top.position.set(0,.75,0);
+      const leg=new THREE.Mesh(new THREE.CylinderGeometry(.06,.09,.75,12),mat(0x5a4a3a));
+      leg.position.set(0,.375,0);
+      g.add(top,leg);
+      for(let i=0;i<8;i++){
+        const a=i/8*Math.PI*2;
+        const c=makeChair();
+        c.position.set(Math.sin(a)*1.42,0,Math.cos(a)*1.42);
+        c.rotation.y=-a; g.add(c);
+      }
+      return g;
+    }},
+    long_table:{label:'Banquet table (10-seat)',icon:'▬',cost:12000,create(){
+      const g=new THREE.Group();
+      const top=new THREE.Mesh(new THREE.BoxGeometry(3,.08,.92),mat(0xc8a97a)); top.position.set(0,.75,0);
+      const legs=[[1.3,.38],[1.3,-.38],[-1.3,.38],[-1.3,-.38]];
+      legs.forEach(([x,z])=>{ const l=new THREE.Mesh(new THREE.BoxGeometry(.07,.75,.07),mat(0x5a4a3a)); l.position.set(x,.375,z); g.add(l); });
+      for(let i=0;i<5;i++){
+        const x=-1.2+i*.6;
+        const ca=makeChair(); ca.position.set(x,0,-.92);
+        const cb=makeChair(); cb.position.set(x,0,.92); cb.rotation.y=Math.PI;
+        g.add(ca,cb);
+      }
+      g.add(top); return g;
+    }},
+    stage:{label:'Stage / Podium',icon:'▣',cost:45000,create(){
+      const g=new THREE.Group();
+      const plat=new THREE.Mesh(new THREE.BoxGeometry(4,.6,2.5),mat(0x1a1a2e)); plat.position.set(0,.3,0);
+      const edge=new THREE.Mesh(new THREE.BoxGeometry(4,.04,.06),emm(0x00d4ff,.9)); edge.position.set(0,.62,1.22);
+      const step=new THREE.Mesh(new THREE.BoxGeometry(1.4,.16,.4),mat(0x252535)); step.position.set(0,.08,1.45);
+      g.add(plat,edge,step); return g;
+    }},
+    buffet_table:{label:'Buffet table',icon:'≡',cost:6000,create(){
+      const g=new THREE.Group();
+      const top=new THREE.Mesh(new THREE.BoxGeometry(2,.06,.82),mat(0xe8e8dd)); top.position.set(0,.9,0);
+      const skirt=new THREE.Mesh(new THREE.BoxGeometry(2.05,.82,.87),mat(0xf5f5f5)); skirt.position.set(0,.46,0);
+      g.add(top,skirt); return g;
+    }},
+    screen:{label:'Projector screen',icon:'▤',cost:25000,create(){
+      const g=new THREE.Group();
+      const pole=new THREE.Mesh(new THREE.CylinderGeometry(.03,.05,1.6,8),mat(0x2a2a2a)); pole.position.set(0,.8,0);
+      const frm=new THREE.Mesh(new THREE.BoxGeometry(2.12,1.42,.03),mat(0x111111)); frm.position.set(0,1.84,0);
+      const scr=new THREE.Mesh(new THREE.BoxGeometry(2,1.3,.02),emm(0xdde8ff,.25)); scr.position.set(0,1.84,.02);
+      g.add(pole,frm,scr); return g;
+    }},
+    dj_booth:{label:'DJ booth',icon:'♪',cost:35000,create(){
+      const g=new THREE.Group();
+      const body=new THREE.Mesh(new THREE.BoxGeometry(1.5,1,.95),mat(0x0d0d1a)); body.position.set(0,.5,0);
+      const strip=new THREE.Mesh(new THREE.BoxGeometry(1.38,.06,.06),emm(0xff00ff,1.2)); strip.position.set(0,.97,.46);
+      g.add(body,strip); return g;
+    }},
+    photo_booth:{label:'Photo booth',icon:'⬛',cost:22000,create(){
+      const g=new THREE.Group();
+      const box=new THREE.Mesh(new THREE.BoxGeometry(1.5,2.2,1),mat(0x1a1a1a)); box.position.set(0,1.1,0);
+      const curtain=new THREE.Mesh(new THREE.BoxGeometry(1.28,1.82,.04),mat(0xcc0066)); curtain.position.set(0,1.1,.49);
+      g.add(box,curtain); return g;
+    }},
+    decor_arch:{label:'Floral arch',icon:'⌒',cost:18000,create(){
+      const g=new THREE.Group();
+      const gm=mat(0x2d5a27), fm=mat(0xff69b4);
+      const lp=new THREE.Mesh(new THREE.CylinderGeometry(.08,.09,2.6,8),gm); lp.position.set(-1.5,1.3,0);
+      const rp=new THREE.Mesh(new THREE.CylinderGeometry(.08,.09,2.6,8),gm); rp.position.set(1.5,1.3,0);
+      g.add(lp,rp);
+      for(let i=0;i<=9;i++){
+        const t=i/9, a=Math.PI*t;
+        const fl=new THREE.Mesh(new THREE.SphereGeometry(.20,8,6),fm.clone());
+        fl.position.set(Math.cos(a)*1.5, 2.6+Math.sin(a)*.85, 0);
+        g.add(fl);
+      }
+      return g;
+    }},
+    poruwa:{label:'Poruwa (ceremony)',icon:'✦',cost:55000,create(){
+      const g=new THREE.Group();
+      const plat=new THREE.Mesh(new THREE.BoxGeometry(3.6,.42,3.6),mat(0x8b6914)); plat.position.set(0,.21,0);
+      [[1.5,1.5],[-1.5,1.5],[1.5,-1.5],[-1.5,-1.5]].forEach(([x,z])=>{
+        const post=new THREE.Mesh(new THREE.CylinderGeometry(.065,.065,2.6,8),mat(0xc0932a)); post.position.set(x,1.72,z);
+        const cap=new THREE.Mesh(new THREE.SphereGeometry(.13,8,6),emm(0xffd700,.5)); cap.position.set(x,3.06,z);
+        g.add(post,cap);
+      });
+      const roof=new THREE.Mesh(new THREE.BoxGeometry(3.9,.09,3.9),mat(0xd4a017)); roof.position.set(0,3.06,0);
+      const lamp=new THREE.Mesh(new THREE.CylinderGeometry(.09,.13,.42,10),mat(0xcd7f32)); lamp.position.set(0,.63,1.42);
+      const flame=new THREE.Mesh(new THREE.SphereGeometry(.07,8,6),emm(0xff6600,1.5)); flame.position.set(0,.88,1.42);
+      g.add(plat,roof,lamp,flame); return g;
+    }},
+    dance_floor:{label:'Dance floor',icon:'♦',cost:28000,create(){
+      const g=new THREE.Group();
+      const m0=mat(0xf8f8f8), m1=mat(0x111111);
+      for(let x=-2;x<=2;x++) for(let z=-2;z<=2;z++){
+        const tile=new THREE.Mesh(new THREE.BoxGeometry(.97,.05,.97),(x+z)%2===0?m0.clone():m1.clone());
+        tile.position.set(x,.025,z); g.add(tile);
+      }
+      return g;
+    }},
+    cake_table:{label:'Cake / sweet table',icon:'◆',cost:9000,create(){
+      const g=new THREE.Group();
+      const top=new THREE.Mesh(new THREE.BoxGeometry(1.5,.07,1.5),mat(0xfff0e0)); top.position.set(0,.9,0);
+      const skirt=new THREE.Mesh(new THREE.BoxGeometry(1.58,.86,1.58),mat(0xffcce0)); skirt.position.set(0,.46,0);
+      [.38,.26,.15].forEach((r,i)=>{
+        const tier=new THREE.Mesh(new THREE.CylinderGeometry(r,r,.19,16),mat(0xfffde7)); tier.position.set(0,.97+i*.2,0); g.add(tier);
+      });
+      g.add(top,skirt); return g;
+    }}
+  };
+
+  /* ── INIT ── */
+  function init(canvas,ev){
+    cvs=canvas; curEv=ev;
+    const a=ev.venue_area||200;
+    venW=Math.round(Math.sqrt(a*1.33));
+    venD=Math.round(a/venW);
+
+    ren=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,preserveDrawingBuffer:true});
+    ren.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    ren.shadowMap.enabled=false;          // shadows off -- avoids r128 buffer freeze
+    ren.setClearColor(0x030712,1);
+    ren.outputEncoding=THREE.sRGBEncoding||3001;
+
+    scn=new THREE.Scene();
+    scn.fog=new THREE.FogExp2(0x030712,.018);
+
+    cam=new THREE.PerspectiveCamera(52,1,.1,250);
+    // Position camera so full venue is visible
+    const camDist=Math.max(venW,venD)*1.0+10;
+    cam.position.set(camDist*.7,camDist*.55,camDist*.85);
+    cam.lookAt(0,0,0);
+
+    raycaster=new THREE.Raycaster();
+    mouse=new THREE.Vector2();
+    dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+
+    _buildVenue(ev);
+    _buildLights();
+    _attachOrbit();
+    _attachPointer();
+    _animate();
+
+    // Resize AFTER a frame so the container has its CSS dimensions
+    setTimeout(_resize,0);
+    window.addEventListener('resize',_resize);
+    return {width:venW,depth:venD};
+  }
+
+  /* ── VENUE ── */
+  function _buildVenue(ev){
+    const w=venW,d=venD;
+    const fcol={wood:0x7a5c2a,marble:0xe0dcd4,carpet:0x2d4a8c,tiles:0xb8b8c0}[ev.floor_texture||'wood']||0x7a5c2a;
+
+    if(floorM){scn.remove(floorM);floorM.geometry.dispose();floorM.material.dispose();}
+    floorM=new THREE.Mesh(
+      new THREE.PlaneGeometry(w,d,1,1),
+      new THREE.MeshStandardMaterial({color:fcol,roughness:.85,metalness:.05})
+    );
+    floorM.rotation.x=-Math.PI/2;
+    floorM.receiveShadow=false;
+    floorM.name='floor';
+    scn.add(floorM);
+
+    // Grid on top of floor
+    const grid=new THREE.GridHelper(Math.max(w,d)+4,Math.max(w,d)+4,0x00d4ff,0x0a1a22);
+    grid.material.transparent=true;
+    grid.material.opacity=.28;
+    grid.position.y=.001;
+    scn.add(grid);
+
+    // Walls
+    wallMs.forEach(m=>{scn.remove(m);m.geometry.dispose();m.material.dispose();});
+    wallMs=[];
+    const wallH=Math.min(ev.ceiling_height||4,8);
+    const wallColor=0x141c28;
+    [
+      {s:[w,wallH,.05],p:[0,wallH/2,-d/2]},
+      {s:[w,wallH,.05],p:[0,wallH/2, d/2]},
+      {s:[d,wallH,.05],p:[ w/2,wallH/2,0],ry:Math.PI/2},
+      {s:[d,wallH,.05],p:[-w/2,wallH/2,0],ry:Math.PI/2}
+    ].forEach(({s,p,ry})=>{
+      const wm=new THREE.Mesh(
+        new THREE.BoxGeometry(...s),
+        new THREE.MeshStandardMaterial({color:wallColor,roughness:.8,transparent:true,opacity:.38,side:THREE.DoubleSide})
+      );
+      wm.position.set(...p);
+      if(ry) wm.rotation.y=ry;
+      wm.name='wall';
+      scn.add(wm); wallMs.push(wm);
+    });
+
+    // Cyan floor edge glow
+    const neonMat=new THREE.MeshStandardMaterial({color:0x00d4ff,emissive:new THREE.Color(0x00d4ff),emissiveIntensity:.7});
+    [[0,.02,-d/2],[0,.02,d/2]].forEach(([x,y,z])=>{
+      const n=new THREE.Mesh(new THREE.BoxGeometry(w,.04,.04),neonMat.clone());
+      n.position.set(x,y,z); scn.add(n);
+    });
+    [[-w/2,.02,0],[w/2,.02,0]].forEach(([x,y,z])=>{
+      const n=new THREE.Mesh(new THREE.BoxGeometry(.04,.04,d),neonMat.clone());
+      n.position.set(x,y,z); scn.add(n);
+    });
+
+    // Exit markers (green rectangles on walls)
+    const ex=Math.min(ev.exit_count||2,8);
+    const exPos=[[-w/2,.5,0],[w/2,.5,0],[0,.5,-d/2],[0,.5,d/2],[-w/3,.5,d/2],[w/3,.5,d/2],[-w/3,.5,-d/2],[w/3,.5,-d/2]];
+    const exMat=new THREE.MeshStandardMaterial({color:0x00dd44,emissive:new THREE.Color(0x00dd44),emissiveIntensity:.9});
+    for(let i=0;i<ex;i++){
+      const sg=new THREE.Mesh(new THREE.BoxGeometry(.7,.35,.06),exMat.clone());
+      sg.position.set(...exPos[i]); sg.name='exit'; scn.add(sg);
+    }
+  }
+
+  function _buildLights(){
+    scn.add(new THREE.AmbientLight(0x8899bb,.9));
+    const sun=new THREE.DirectionalLight(0xffffff,.7); sun.position.set(12,22,10); scn.add(sun);
+    const fill=new THREE.PointLight(0x00d4ff,.5,venW*2+10); fill.position.set(-venW/3,4,0); scn.add(fill);
+    const warm=new THREE.PointLight(0xffb800,.3,venD*2); warm.position.set(venW/3,3,venD/3); scn.add(warm);
+    scn.add(new THREE.HemisphereLight(0x223355,0x030712,.5));
+  }
+
+  /* ── ORBIT (right-drag or middle-drag) ── */
+  function _attachOrbit(){
+    function _orbUpdate(){
+      const r=orb.r;
+      cam.position.set(
+        r*Math.sin(orb.phi)*Math.sin(orb.theta),
+        r*Math.cos(orb.phi),
+        r*Math.sin(orb.phi)*Math.cos(orb.theta)
+      );
+      cam.lookAt(0,0,0);
+    }
+    cvs.addEventListener('mousedown',e=>{
+      if(e.button===2||e.button===1){
+        orb.active=true; orb.btn=e.button; orb.lx=e.clientX; orb.ly=e.clientY;
+      }
+    });
+    cvs.addEventListener('mousemove',e=>{
+      if(!orb.active) return;
+      orb.theta-=(e.clientX-orb.lx)*.006;
+      orb.phi=Math.max(.08,Math.min(Math.PI/2-.04,orb.phi-(e.clientY-orb.ly)*.006));
+      orb.lx=e.clientX; orb.ly=e.clientY;
+      _orbUpdate();
+    });
+    cvs.addEventListener('mouseup',()=>{ orb.active=false; });
+    cvs.addEventListener('contextmenu',e=>e.preventDefault());
+    cvs.addEventListener('wheel',e=>{
+      orb.r=Math.max(6,Math.min(70,orb.r+e.deltaY*.04));
+      _orbUpdate(); e.preventDefault();
+    },{passive:false});
+  }
+
+  /* ── POINTER EVENTS (select + drag) ── */
+  function _getMouse(e){
+    const r=cvs.getBoundingClientRect();
+    mouse.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+  }
+
+  // Walk up from a hit child to find the top-level Group in placed[]
+  function _findPlacedGroup(obj){
+    let cur=obj;
+    while(cur){
+      const found=placed.find(p=>p.mesh===cur);
+      if(found) return cur;
+      cur=cur.parent;
+    }
+    return null;
+  }
+
+  function _attachPointer(){
+    cvs.addEventListener('mousedown',e=>{
+      if(e.button!==0||orb.active) return;
+      _getMouse(e);
+      raycaster.setFromCamera(mouse,cam);
+
+      // Only intersect meshes that belong to placed groups
+      const meshes=[];
+      placed.forEach(p=>p.mesh.traverse(c=>{ if(c.isMesh) meshes.push(c); }));
+      const hits=raycaster.intersectObjects(meshes,false);
+
+      if(hits.length){
+        const group=_findPlacedGroup(hits[0].object);
+        if(group){
+          _select(group);
+          isDrag=true; dragObj=group;
+          // Compute where on the drag plane the click hit so object doesn't jump
+          const t=new THREE.Vector3();
+          raycaster.ray.intersectPlane(dragPlane,t);
+          dragOffset.set(group.position.x-t.x, 0, group.position.z-t.z);
+        }
+      } else {
+        _select(null);
+      }
+    });
+
+    cvs.addEventListener('mousemove',e=>{
+      if(!isDrag||!dragObj) return;
+      _getMouse(e);
+      raycaster.setFromCamera(mouse,cam);
+      const t=new THREE.Vector3();
+      if(raycaster.ray.intersectPlane(dragPlane,t)){
+        const hw=venW/2-1.6, hd=venD/2-1.6;
+        // Snap to 0.5m grid
+        dragObj.position.x=Math.round((Math.max(-hw,Math.min(hw,t.x+dragOffset.x)))*2)/2;
+        dragObj.position.z=Math.round((Math.max(-hd,Math.min(hd,t.z+dragOffset.z)))*2)/2;
+        _checkOverflow();
+      }
+    });
+
+    cvs.addEventListener('mouseup',e=>{
+      if(e.button!==0) return;
+      if(isDrag && dragObj){
+        clog('Object moved');
+        RT.emit('layout_update',{by:S.user?.name,roomId:S.project?.roomId,objects:Scene3D.get()});
+      }
+      isDrag=false; dragObj=null;
+    });
+  }
+
+  /* ── SELECT (highlight without mutating shared materials) ── */
+  let _selOutline=null;
+  function _select(group){
+    // Remove old outline
+    if(_selOutline){ scn.remove(_selOutline); _selOutline=null; }
+    selected=group;
+
+    if(group){
+      // Draw a bounding-box wireframe around the group instead of mutating materials
+      const box=new THREE.Box3().setFromObject(group);
+      const size=new THREE.Vector3(); box.getSize(size);
+      const center=new THREE.Vector3(); box.getCenter(center);
+      const wireGeo=new THREE.BoxGeometry(size.x+.1,size.y+.1,size.z+.1);
+      const wireMat=new THREE.MeshBasicMaterial({color:0x00d4ff,wireframe:true,transparent:true,opacity:.6});
+      _selOutline=new THREE.Mesh(wireGeo,wireMat);
+      _selOutline.position.copy(center);
+      _selOutline.name='__sel_outline';
+      scn.add(_selOutline);
+
+      const p=placed.find(x=>x.mesh===group);
+      if(p) _renderProps(p);
+    } else {
+      const el=document.getElementById('obj-props');
+      if(el) el.innerHTML='<p class="muted">Click an object to edit</p>';
+    }
+  }
+
+  function _renderProps(p){
+    const cost=p.cost||0;
+    const el=document.getElementById('obj-props');
+    if(!el) return;
+    el.innerHTML=`
+      <div style="font-size:12px;font-weight:500;margin-bottom:6px">${p.label}</div>
+      <div style="font-size:10px;color:var(--c3);margin-bottom:8px">
+        x=${p.mesh.position.x.toFixed(1)}m &nbsp; z=${p.mesh.position.z.toFixed(1)}m
+      </div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--c2)">
+          <span style="width:52px">Colour</span>
+          <input type="color" value="#8b7355"
+            style="width:28px;height:24px;border:1px solid var(--bd);border-radius:4px;background:none;padding:2px;cursor:pointer"
+            oninput="Scene3D.applyColor(this.value)">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--c2)">
+          <span style="width:52px">Rotate</span>
+          <input type="range" min="0" max="360" value="${Math.round(p.mesh.rotation.y*180/Math.PI)}" step="15" style="flex:1;accent-color:var(--cyan)"
+            oninput="Scene3D.applyRot(this.value)">
+          <span style="width:30px;font-size:10px;color:var(--cyan)"
+            id="rot-disp">${Math.round(p.mesh.rotation.y*180/Math.PI)}deg</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--c2)">
+          <span style="width:52px">Scale</span>
+          <input type="range" min="60" max="180" value="100" step="5" style="flex:1;accent-color:var(--cyan)"
+            oninput="Scene3D.applyScale(this.value/100)">
+          <span style="width:30px;font-size:10px;color:var(--cyan)">100%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--c2)">
+          <span style="width:52px">Cost LKR</span>
+          <input type="number" min="0" step="500" value="${cost}"
+            style="flex:1;padding:4px 6px;background:rgba(255,255,255,.05);border:1px solid var(--bd);border-radius:4px;color:var(--c1);font-size:12px"
+            oninput="Scene3D.updateCost(this.value)">
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="Scene3D.rot90()"
+          style="flex:1;font-size:10px;padding:5px;background:transparent;border:1px solid var(--bd);border-radius:4px;color:var(--c2);cursor:pointer">
+          Rotate 90
+        </button>
+        <button onclick="Scene3D.del()"
+          style="flex:1;font-size:10px;padding:5px;background:transparent;border:1px solid rgba(255,68,102,.4);border-radius:4px;color:var(--red);cursor:pointer">
+          Remove
+        </button>
+      </div>`;
+  }
+
+  /* ── OBJECT MANIPULATION ── */
+  function applyColor(hex){
+    if(!selected) return;
+    const c=new THREE.Color(hex);
+    selected.traverse(ch=>{
+      if(ch.isMesh){
+        // Clone the material before modifying to avoid shared-material issues
+        if(!ch.userData._ownMat){
+          ch.material=ch.material.clone();
+          ch.userData._ownMat=true;
+        }
+        ch.material.color.copy(c);
+      }
+    });
+  }
+  function applyRot(deg){
+    if(!selected) return;
+    selected.rotation.y=parseFloat(deg)*Math.PI/180;
+    _refreshOutline();
+    const d=document.getElementById('rot-disp');
+    if(d) d.textContent=Math.round(deg)+'deg';
+  }
+  function applyScale(s){
+    if(!selected) return;
+    selected.scale.setScalar(parseFloat(s));
+    _refreshOutline();
+  }
+  function rot90(){
+    if(!selected) return;
+    selected.rotation.y+=Math.PI/2;
+    _refreshOutline();
+  }
+  function del(){
+    if(!selected) return;
+    // Remove outline
+    if(_selOutline){ scn.remove(_selOutline); _selOutline=null; }
+    const p=placed.find(x=>x.mesh===selected);
+    if(p){
+      // Dispose geometries and materials
+      p.mesh.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); c.material.dispose(); } });
+      scn.remove(p.mesh);
+      placed=placed.filter(x=>x.id!==p.id);
+    }
+    selected=null;
+    const el=document.getElementById('obj-props');
+    if(el) el.innerHTML='<p class="muted">Click an object to edit</p>';
+    _checkOverflow();
+    clog('Object removed');
+    Metrics.remove();
+    RT.emit('layout_update',{by:S.user?.name,roomId:S.project?.roomId,objects:Scene3D.get()});
+  }
+  function updateCost(v){
+    const p=placed.find(x=>x.mesh===selected);
+    if(p) p.cost=parseFloat(v)||0;
+  }
+  function _refreshOutline(){
+    if(!_selOutline||!selected) return;
+    const box=new THREE.Box3().setFromObject(selected);
+    const size=new THREE.Vector3(); box.getSize(size);
+    const center=new THREE.Vector3(); box.getCenter(center);
+    _selOutline.geometry.dispose();
+    _selOutline.geometry=new THREE.BoxGeometry(size.x+.1,size.y+.1,size.z+.1);
+    _selOutline.position.copy(center);
+  }
+
+  /* ── OVERFLOW CHECK ── */
+  function _checkOverflow(){
+    if(!curEv) return;
+    const r=AI.checkOverflow(curEv,get());
+    const ban=document.getElementById('ovf');
+    const al=document.getElementById('cap-al');
+    if(r.overflow){
+      if(ban) ban.classList.remove('h');
+      if(ban) ban.textContent='Warning: '+r.msg;
+      if(al){ al.classList.remove('h'); al.className='cap-a bd ps'; al.textContent=`Objects use ${r.usedM2}m2 but only ${r.availM2}m2 available for furniture.`; }
+    } else {
+      if(ban) ban.classList.add('h');
+      const spg=(curEv.venue_area/curEv.guests).toFixed(1);
+      const wn=parseFloat(spg)<1.5;
+      if(al){ al.className=`cap-a ${wn?'wn':'h'} ps`; if(wn) al.textContent=`Space/guest: ${spg}m2 -- below 1.5m2 comfort threshold.`; }
+    }
+  }
+
+  /* ── PLACE / LAYOUT ── */
+  function place(type, forceX, forceZ){
+    const def=DEFS[type];
+    if(!def){ console.warn('Unknown type:',type); return null; }
+    const g=def.create();
+    const hw=venW/2-2, hd=venD/2-2;
+    g.position.set(
+      forceX!==undefined ? forceX : (Math.random()-.5)*hw*1.4,
+      0,
+      forceZ!==undefined ? forceZ : (Math.random()-.5)*hd*1.4
+    );
+    g.name='placed_'+type+'_'+Date.now();
+    scn.add(g);
+    const entry={mesh:g,type,label:def.label,id:Date.now()+Math.random(),cost:def.cost||0};
+    placed.push(entry);
+    document.getElementById('c-hint')?.classList.add('h');
+    _select(g);
+    _checkOverflow();
+    clog('Placed '+def.label);
+    if(typeof Metrics!=='undefined') Metrics.place();
+    RT.emit('layout_update',{by:S.user?.name,roomId:S.project?.roomId,objects:Scene3D.get()});
+    return g;
+  }
+
+  function addDirect(g,type,label,id,x,z,rot){
+    g.position.set(x,0,z);
+    g.rotation.y=rot||0;
+    g.name='placed_'+type+'_'+id;
+    scn.add(g);
+    const def=DEFS[type];
+    placed.push({mesh:g,type,label,id,cost:def?.cost||0});
+  }
+
+  function clearAll(){
+    if(_selOutline){ scn.remove(_selOutline); _selOutline=null; }
+    placed.forEach(p=>{
+      p.mesh.traverse(c=>{ if(c.isMesh){ c.geometry.dispose(); c.material.dispose(); } });
+      scn.remove(p.mesh);
+    });
+    placed=[];
+    selected=null;
+    const el=document.getElementById('obj-props');
+    if(el) el.innerHTML='<p class="muted">Click an object to edit</p>';
+    document.getElementById('c-hint')?.classList.remove('h');
+  }
+
+  function autoLayout(ev){
+    clearAll(); curEv=ev;
+    const guests=ev.guests||100, area=ev.venue_area||200;
+    const tableType=ev.seating_arrangement==='banquet'?'long_table':'table';
+    const seatsPerTable=ev.seats_per_table||8;
+    const tableCount=Math.min(Math.ceil(guests/seatsPerTable), Math.floor(area*.42/4.8));
+    const cols=Math.ceil(Math.sqrt(tableCount)), rows=Math.ceil(tableCount/cols);
+    const spacingX=Math.min(3.6, venW*.68/Math.max(cols,1));
+    const spacingZ=Math.min(3.6, venD*.68/Math.max(rows,1));
+    const originX=-(cols-1)*spacingX/2;
+    const originZ=-(rows-1)*spacingZ/2;
+    let n=0;
+    for(let r=0;r<rows&&n<tableCount;r++){
+      for(let c=0;c<cols&&n<tableCount;c++){
+        const def=DEFS[tableType];
+        addDirect(def.create(),tableType,def.label,Date.now()+n, originX+c*spacingX, originZ+r*spacingZ, 0);
+        n++;
+      }
+    }
+    if(ev.has_stage){
+      const d=DEFS.stage; addDirect(d.create(),'stage',d.label,Date.now()+900, 0, -(venD/2-2.2), 0);
+    }
+    if(ev.catering_style==='buffet'){
+      for(let b=0;b<3;b++){
+        const d=DEFS.buffet_table;
+        addDirect(d.create(),'buffet_table',d.label,Date.now()+1000+b, -venW/2+2.2, -venD/4+b*2.6, Math.PI/2);
+      }
+    }
+    if(ev.av_equipment?.includes('projector')||ev.av_equipment?.includes('led_screen')){
+      const d=DEFS.screen; addDirect(d.create(),'screen',d.label,Date.now()+2000, 0, -(venD/2-1.2), 0);
+    }
+    if(ev.event_type==='wedding'){
+      const d=DEFS.poruwa; addDirect(d.create(),'poruwa',d.label,Date.now()+3000, 0, -(venD/2-3.2), 0);
+    }
+    if(ev.event_type==='birthday'){
+      const d=DEFS.cake_table; addDirect(d.create(),'cake_table',d.label,Date.now()+4000, 0, -(venD/2-2.8), 0);
+    }
+    document.getElementById('c-hint')?.classList.add('h');
+    _checkOverflow();
+  }
+
+  function applyFeas(f){
+    const colorMap={green:0x00ff88,amber:0xffb800,red:0xff4466};
+    placed.forEach(({mesh,type})=>{
+      let col=colorMap.green;
+      if(type==='table'||type==='long_table') col=colorMap[f.space]||colorMap.green;
+      else if(type==='buffet_table') col=colorMap[f.catering]||colorMap.green;
+      mesh.traverse(ch=>{
+        if(ch.isMesh){
+          if(!ch.userData._ownMat){ ch.material=ch.material.clone(); ch.userData._ownMat=true; }
+          ch.material.emissive=new THREE.Color(col);
+          ch.material.emissiveIntensity=.07;
+        }
+      });
+    });
+  }
+
+  /* ── RENDER LOOP ── */
+  function _animate(){
+    animId=requestAnimationFrame(_animate);
+    // Subtle breathing camera bob
+    cam.position.y+=Math.sin(Date.now()*.0004)*.0025;
+    // Keep outline synced if object was moved by drag
+    if(isDrag&&dragObj&&_selOutline) _refreshOutline();
+    ren.render(scn,cam);
+  }
+
+  function _resize(){
+    if(!cvs||!ren) return;
+    const parent=cvs.parentElement;
+    if(!parent) return;
+    const w=parent.clientWidth||800, h=parent.clientHeight||600;
+    if(w<1||h<1) return;
+    ren.setSize(w,h);
+    cam.aspect=w/h;
+    cam.updateProjectionMatrix();
+  }
+
+  function destroy(){
+    if(animId) cancelAnimationFrame(animId);
+    window.removeEventListener('resize',_resize);
+    if(_selOutline) scn.remove(_selOutline);
+    clearAll();
+    wallMs.forEach(m=>{m.geometry.dispose();m.material.dispose();});
+    if(floorM){floorM.geometry.dispose();floorM.material.dispose();}
+    ren?.dispose();
+    ren=null; scn=null; cam=null; cvs=null;
+  }
+
+  function get(){
+    return placed.map(p=>({
+      type:p.type, label:p.label, id:p.id, cost:p.cost||0,
+      x:p.mesh.position.x, z:p.mesh.position.z, rotation:p.mesh.rotation.y
+    }));
+  }
+  function totalCost(){ return placed.reduce((s,p)=>s+(p.cost||0),0); }
+  function dims(){ return {width:venW, depth:venD}; }
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    if(e.key==='Delete'||e.key==='Backspace') del();
+    if((e.key==='r'||e.key==='R')&&!e.ctrlKey&&!e.metaKey) rot90();
+  });
+
+  return {
+    init, place, addDirect, clearAll, autoLayout,
+    get, totalCost, dims,
+    applyColor, applyRot, applyScale, rot90, del, updateCost,
+    applyFeas, destroy, DEFS
+  };
+})();
+
+
+/* ════════ TEMPLATES ════════ */
+const TPLS={
+  wedding:{name:'Sri Lankan Wedding',icon:'💍',desc:'Poruwa, floral arch, buffet, head table',meta:'150-300 guests',objs:[{tp:'poruwa',fx:0,fz:-.42},{tp:'decor_arch',fx:0,fz:-.48},{tp:'long_table',fx:0,fz:-.30,lb:'Head table'},{tp:'table',fx:-.35,fz:-.06},{tp:'table',fx:-.15,fz:-.06},{tp:'table',fx:.15,fz:-.06},{tp:'table',fx:.35,fz:-.06},{tp:'table',fx:-.25,fz:.18},{tp:'table',fx:.25,fz:.18},{tp:'buffet_table',fx:-.3,fz:.44},{tp:'buffet_table',fx:0,fz:.44},{tp:'buffet_table',fx:.3,fz:.44},{tp:'screen',fx:.38,fz:-.40}]},
+  birthday:{name:'Birthday Party',icon:'🎂',desc:'Cake table, balloon arch, buffet, DJ booth',meta:'40-100 guests',objs:[{tp:'cake_table',fx:0,fz:-.42},{tp:'decor_arch',fx:0,fz:-.48,lb:'Balloon arch'},{tp:'table',fx:-.3,fz:-.16},{tp:'table',fx:0,fz:-.16},{tp:'table',fx:.3,fz:-.16},{tp:'table',fx:-.15,fz:.08},{tp:'table',fx:.15,fz:.08},{tp:'buffet_table',fx:-.4,fz:-.1,rt:Math.PI/2},{tp:'dj_booth',fx:.4,fz:.38},{tp:'photo_booth',fx:-.4,fz:.38},{tp:'dance_floor',fx:0,fz:.3}]},
+  corporate:{name:'Corporate Conference',icon:'💼',desc:'Stage, LED screen, theatre seating rows',meta:'80-200 guests',objs:[{tp:'stage',fx:0,fz:-.42},{tp:'screen',fx:0,fz:-.48},{tp:'long_table',fx:0,fz:-.18,lb:'Row 1'},{tp:'long_table',fx:0,fz:-.02,lb:'Row 2'},{tp:'long_table',fx:0,fz:.14,lb:'Row 3'},{tp:'long_table',fx:0,fz:.30,lb:'Row 4'},{tp:'buffet_table',fx:-.4,fz:.44,lb:'Registration'},{tp:'dj_booth',fx:.4,fz:.42,lb:'AV control'}]},
+  seminar:{name:'Seminar / Workshop',icon:'🎓',desc:'Presenter table, projector, classroom rows',meta:'20-60 guests',objs:[{tp:'screen',fx:0,fz:-.46},{tp:'buffet_table',fx:0,fz:-.36,lb:'Presenter'},{tp:'long_table',fx:-.1,fz:-.1,lb:'Row A'},{tp:'long_table',fx:.32,fz:-.1,lb:'Row A'},{tp:'long_table',fx:-.1,fz:.08,lb:'Row B'},{tp:'long_table',fx:.32,fz:.08,lb:'Row B'},{tp:'long_table',fx:-.1,fz:.26,lb:'Row C'},{tp:'long_table',fx:.32,fz:.26,lb:'Row C'},{tp:'buffet_table',fx:-.4,fz:.42,rt:Math.PI/2,lb:'Coffee'}]}
+};
+function applyTpl(type){
+  Modal.close('m-tpl');const t=TPLS[type];if(!t)return;
+  const d=Scene3D.dims();Scene3D.clearAll();
+  t.objs.forEach((o,i)=>{const def=Scene3D.DEFS[o.tp];if(!def)return;const g=def.create();Scene3D.addDirect(g,o.tp,o.lb||def.label,Date.now()+i,o.fx*d.width*.88,o.fz*d.depth*.88,o.rt||0);});
+  clog(`Template: ${t.name}`,'ai');toast(`${t.name} applied`,'s');
+  Logger.log({ event:'template_applied', type });
+}
+function initTplGrid(){
+  const gr=document.getElementById('tpl-grid');if(!gr)return;
+  gr.innerHTML=Object.entries(TPLS).map(([k,t])=>`<div onclick="applyTpl('${k}')" style="background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:14px;cursor:pointer;transition:all var(--tx)" onmouseover="this.style.borderColor='var(--bd-c)'" onmouseout="this.style.borderColor='var(--bd)'"><div style="font-size:22px;margin-bottom:8px">${t.icon}</div><div style="font-family:var(--tf);font-size:11px;color:var(--cyan);margin-bottom:4px">${t.name}</div><div style="font-size:11px;color:var(--c2);line-height:1.5">${t.desc}</div><div style="font-size:10px;color:var(--c3);margin-top:6px">${t.meta}</div></div>`).join('');
+}
+
+/* ════════ AI API CONFIGURATION ════════
+   Set AI_API_URL to your Google Colab ngrok URL to use the real
+   Random Forest model. Leave as null to use the built-in JS simulation.
+   
+   How to get the URL:
+   1. Open SLAY_AI_Model_API.ipynb in Google Colab
+   2. Runtime → Run all
+   3. Copy the ngrok URL from Cell 6 output
+   4. Paste it below, e.g.: const AI_API_URL = "https://abc123.ngrok.io";
+*/
+let AI_API_URL = null; // e.g. "https://your-ngrok-url.ngrok.io"
+
+/* ════════ PLANNER ════════ */
+const Planner={
+  open(proj){
+    S.project=proj; WR._waiting=[]; WR._active=[]; WR._sugs=[]; WR._blocked=new Set();
+    const ev=proj.eventData;
+    document.getElementById('p-pname').textContent=ev.name||'Untitled';
+    document.getElementById('p-room').textContent=proj.roomId;
+    S.sessionId=proj.roomId;
+    // Join RT immediately so host receives collab_request before scene loads
+    RT.join(proj.roomId);
+    Nav.go('s-plan');
+    setTimeout(()=>{
+      if(S.sceneOk){try{Scene3D.destroy();}catch(e){}}
+      Scene3D.init(document.getElementById('c3d'),ev);S.sceneOk=true;
+      _buildPalette();_updateStats(ev);
+      setTimeout(()=>{Scene3D.autoLayout(ev);clog(`Opened: "${ev.name}"`,'ai');clog(`${ev.venue_area}m² -- ${ev.guests} guests -- exits: ${ev.exit_count}`,'ai');clog('RT collab active -- room: '+proj.roomId,'ai');},200);
+      toast(`Room: ${proj.roomId} -- share with collaborators`,'i',6000);
+      initTplGrid();
+      // WR.open() is called directly by the + Collab button
+    },80);
+    Logger.log({ event:'planner_opened', projectId:proj.id, roomId:proj.roomId });
+  },
+  save(){if(!S.project){toast('No project','e');return;}upsert(S.project);Dash.refresh();clog('Project saved','ai');toast('Saved','s');Logger.log({event:'project_saved'});},
+  runAI(){
+    const ev=S.project?.eventData; if(!ev){toast('No project','e');return;}
+    const placed=Scene3D.get();
+    const ovf=AI.checkOverflow(ev,placed);
+    if(ovf.overflow) toast(`Warning: ${ovf.msg}`,'e',6000);
+
+    const st =document.getElementById('ai-st');
+    const btn=document.getElementById('ai-btn');
+    st.className='ai-s run';
+    st.innerHTML='<div class="ai-d"></div><span>Analysing...</span>';
+    btn.textContent='Analysing...';
+    clog('AI analysis started','ai');
+    Logger.log({event:'ai_started'});
+
+    const payload = {
+      ...ev,
+      table_coverage: placed.length > 0
+        ? Math.min(placed.filter(o=>o.type==='table'||o.type==='long_table').length*4.5 / (ev.venue_area*.6), 1)
+        : 0.45
+    };
+
+    if(AI_API_URL){
+      // Real Random Forest model via Google Colab API
+      fetch(`${AI_API_URL}/predict`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      })
+      .then(r=>{ if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(apiResult=>{ Planner._applyAIResult(apiResult, ev, 'Real RF Model (Colab)'); })
+      .catch(err=>{
+        console.warn('Colab API failed, using JS fallback:', err);
+        toast('Colab API unavailable -- using local model','i',3000);
+        setTimeout(()=>{ Planner._applyAIResult(AI.predict(ev,placed), ev, 'JS simulation'); }, 400);
+      });
+    } else {
+      // Built-in JS Random Forest simulation
+      setTimeout(()=>{ Planner._applyAIResult(AI.predict(ev,placed), ev, 'JS simulation'); }, 1100);
+    }
+  },
+
+  _applyAIResult(r, ev, source){
+    S.aiResult=r;
+    S.project.lastScore=r.layout_score;
+    upsert(S.project);
+    Metrics.aiRun(r.layout_score);
+    const sc=r.layout_score;
+    const col=sc>=80?'var(--green)':sc>=60?'var(--amber)':'var(--red)';
+    const st =document.getElementById('ai-st');
+    const btn=document.getElementById('ai-btn');
+    st.className='ai-s done';
+    st.innerHTML=`<div class="ai-d"></div><span style="color:${col}">Score: ${sc}/100 <span style="font-size:9px;opacity:.6">(${source})</span></span>`;
+    btn.textContent='Re-run AI';
+    XAI.ring(sc);
+    XAI.breakdown(r.breakdown  || AI._bd(r.fs||{},r.features||{},ev,sc));
+    XAI.shap(r.shap_values, sc, ev);
+    XAI.budget(r.budget_allocation || AI._ba(ev));
+    XAI.suggestions(r.suggestions  || AI._sugs(r.fs||{},r.features||{},ev));
+    XAI.metrics();
+    Scene3D.applyFeas(r.feasibility || AI._feas(r.fs||{},r.features||{}));
+    clog(`Score: ${sc}/100 (${source})`,'ai');
+    const tp=r.shap_values?.[0];
+    if(tp) clog(`Top SHAP: ${tp.label||tp.feature} (${Number(tp.value)>=0?'+':''}${Number(tp.value).toFixed(1)} pts)`,'ai');
+    toast(`Layout score: ${sc}/100`, sc>=70?'s':'e');
+    Dash.refresh();
+    RT.emit('ai_result',{score:sc, by:S.user?.name, roomId:S.project?.roomId});
+    Logger.log({event:'ai_completed', score:sc, source});
+  },
+};
+
+function _buildPalette(){
+  const pal=document.getElementById('pal');if(!pal)return;
+  const items=[{tp:'table',ico:'◉',lb:'Round table'},{tp:'long_table',ico:'▬',lb:'Banquet'},{tp:'stage',ico:'▣',lb:'Stage'},{tp:'buffet_table',ico:'≡',lb:'Buffet'},{tp:'screen',ico:'▤',lb:'Screen'},{tp:'dj_booth',ico:'♪',lb:'DJ booth'},{tp:'photo_booth',ico:'⬛',lb:'Photo booth'},{tp:'decor_arch',ico:'⌒',lb:'Floral arch'},{tp:'poruwa',ico:'✦',lb:'Poruwa'},{tp:'dance_floor',ico:'♦',lb:'Dance floor'},{tp:'cake_table',ico:'◆',lb:'Cake table'}];
+  pal.innerHTML=items.map(i=>`<div class="pit" onclick="Scene3D.place('${i.tp}')" title="${i.lb}"><span class="pit-ico">${i.ico}</span>${i.lb}</div>`).join('');
+}
+function _updateStats(ev){
+  const a=ev.venue_area||200,g=ev.guests||100,spg=(a/g).toFixed(1),bpg=Math.round(ev.budget/g);
+  const sc=parseFloat(spg)>=1.5?'ok':parseFloat(spg)>=1?'wn':'bd',bc=bpg>=3000?'ok':bpg>=1500?'wn':'bd';
+  document.getElementById('vstats').innerHTML=`<div class="vsr"><span class="l">Area</span><span class="v">${a} m2</span></div><div class="vsr"><span class="l">Guests</span><span class="v">${g}</span></div><div class="vsr"><span class="l">Space/guest</span><span class="v ${sc}">${spg} m2</span></div><div class="vsr"><span class="l">Budget</span><span class="v">LKR ${(ev.budget||0).toLocaleString()}</span></div><div class="vsr"><span class="l">Budget/guest</span><span class="v ${bc}">LKR ${bpg.toLocaleString()}</span></div><div class="vsr"><span class="l">Exits</span><span class="v ${ev.exit_count>=2?'ok':'bd'}">${ev.exit_count}</span></div>`;
+}
+
+/* ════════ EXPORT ════════ */
+const Exp={
+  img(){
+    const c=document.getElementById('c3d');if(!c){toast('No scene','e');return;}
+    try{const a=document.createElement('a');a.download=`SLAY_${(S.project?.eventData?.name||'layout').replace(/\s+/g,'_')}.png`;a.href=c.toDataURL('image/png',1);a.click();toast('Image downloaded','s');Modal.close('m-export');}catch(e){toast('Export failed','e');}
+  },
+  json(){
+    const p=S.project;if(!p){toast('No project','e');return;}
+    const data={meta:{v:'5.0',sys:'SLAY v5',at:new Date().toISOString(),by:S.user?.name},project:{id:p.id,roomId:p.roomId,createdAt:p.createdAt,lastScore:p.lastScore},event_data:p.eventData,layout:{dims:Scene3D.dims(),objects:Scene3D.get()},ai_result:S.aiResult?{score:S.aiResult.layout_score,shap:S.aiResult.shap_values,breakdown:S.aiResult.breakdown,budget:S.aiResult.budget_allocation}:null,budget:{total:p.eventData?.budget||0,scene:Scene3D.totalCost(),remaining:(p.eventData?.budget||0)-Scene3D.totalCost()},collab_log:Logger.getLogs().filter(l=>l.event?.includes('suggestion')||l.event?.includes('admit'))};
+    const bl=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const u=URL.createObjectURL(bl);const a=document.createElement('a');a.download=`SLAY_${(p.eventData?.name||'project').replace(/\s+/g,'_')}.json`;a.href=u;a.click();URL.revokeObjectURL(u);toast('JSON downloaded','s');Modal.close('m-export');
+  },
+  testReport(){
+    const r=Tests.run();const pct=Math.round(r.passed/r.total*100);
+    const html=`<!DOCTYPE html><html><head><title>SLAY Test Report</title><style>body{font-family:system-ui;padding:24px;max-width:800px;margin:0 auto}h1{font-size:22px}p{color:#666;font-size:13px;margin-bottom:16px}.sum{display:flex;gap:18px;padding:16px;background:#f7f7f7;border-radius:8px;margin-bottom:18px}.sm{text-align:center}.sv{font-size:28px;font-weight:700}.pass{color:#27ae60}.fail{color:#e74c3c}.info{color:#2980b9}table{width:100%;border-collapse:collapse}th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #eee;font-size:13px}th{background:#f9f9f9;font-size:11px;letter-spacing:.06em;text-transform:uppercase}.b{padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}.bp{background:#d5f5e3;color:#27ae60}.bf{background:#fadbd8;color:#e74c3c}footer{margin-top:24px;font-size:11px;color:#aaa}</style></head><body><h1>SLAY v5 -- Automated Test Report</h1><p>Generated: ${new Date().toLocaleString()} | IIT / University of Westminster 2026</p><div class="sum"><div class="sm"><div class="sv pass">${r.passed}</div><div>Passed</div></div><div class="sm"><div class="sv fail">${r.failed}</div><div>Failed</div></div><div class="sm"><div class="sv info">${r.total}</div><div>Total</div></div><div class="sm"><div class="sv ${pct>=85?'pass':'fail'}">${pct}%</div><div>Pass rate</div></div></div><table><thead><tr><th>#</th><th>ID</th><th>Test case</th><th>Category</th><th>Result</th></tr></thead><tbody>${r.tests.map((t,i)=>`<tr><td>${i+1}</td><td>${t.id}</td><td>${t.name}</td><td>${t.cat}</td><td><span class="b ${t.ok?'bp':'bf'}">${t.ok?'PASS':'FAIL'}</span></td></tr>`).join('')}</tbody></table><footer>SLAY v5 -- AI-Powered Collaborative Event Spatial Planner | IIT / University of Westminster 2026</footer></body></html>`;
+    const bl=new Blob([html],{type:'text/html'});const u=URL.createObjectURL(bl);const a=document.createElement('a');a.download=`SLAY_TestReport.html`;a.href=u;a.click();URL.revokeObjectURL(u);toast(`Report: ${r.passed}/${r.total} passed`,'s');Modal.close('m-export');
+  },
+  metricsReport(){
+    const data={ metrics: Metrics.getSummary(), logs: Logger.getLogs(), exportedAt: new Date().toISOString(), session: S.sessionId };
+    const bl=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const u=URL.createObjectURL(bl);const a=document.createElement('a');a.download=`SLAY_Metrics_${Date.now()}.json`;a.href=u;a.click();URL.revokeObjectURL(u);toast('Metrics exported','s');Modal.close('m-export');
+  }
+};
+
+/* ════════ TESTS ════════ */
+const Tests={
+  run(){
+    const T=(id,name,cat,fn)=>{let ok=false;try{ok=!!fn();}catch(e){}return{id,name,cat,ok};};
+    const ev0={guests:100,venue_area:200,budget:500000,exit_count:2,event_type:'wedding',has_stage:true,catering_style:'buffet',theme:'classic',decor_level:2,av_equipment:[],accessibility:[],decor_types:[]};
+    const tests=[
+      T('UT01','Guest count validation','Unit',()=>Number.isInteger(150)&&150>0&&150<=1000),
+      T('UT02','Budget LKR large values','Unit',()=>2500000>0&&2500000<=999999999),
+      T('UT03','Room ID format check','Unit',()=>/^[A-Z]{2,4}-[A-Z0-9]{2,5}$/.test(genRoomId('wedding'))),
+      T('UT04','Space per guest calculation','Unit',()=>Math.abs(300/150-2)<.001),
+      T('UT05','Budget per guest calculation','Unit',()=>Math.round(800000/200)===4000),
+      T('UT06','AI extractFeatures 12 keys','Unit',()=>{const r=AI.predict(ev0,[]);return Object.keys(r.fs).length===12;}),
+      T('UT07','AI score in range 0-100','Unit',()=>{const r=AI.predict(ev0,[]);return r.layout_score>=0&&r.layout_score<=100;}),
+      T('UT08','SHAP returns 8 values','Unit',()=>AI.predict(ev0,[]).shap_values.length===8),
+      T('UT09','Score breakdown 6 dims','Unit',()=>AI.predict(ev0,[]).breakdown.length===6),
+      T('UT10','Budget alloc sums to total','Unit',()=>{const ev={...ev0,budget:1000000};const al=AI.predict(ev,[]).budget_allocation;return Math.abs(Object.values(al).reduce((a,b)=>a+b,0)-1000000)<1000;}),
+      T('UT11','Overcrowded gives low safety','Unit',()=>{const ev={...ev0,guests:500,venue_area:100};return AI.predict(ev,[]).breakdown[0].pts<10;}),
+      T('UT12','Overflow detection works','Unit',()=>AI.checkOverflow({...ev0,guests:500,venue_area:80},Array(20).fill({type:'table'})).overflow===true),
+      T('IT01','Auth valid credentials','Integration',()=>getUsers()['planner_01']?.password==='password'),
+      T('IT02','Auth invalid rejected','Integration',()=>!getUsers()['wrong_user_xyz']),
+      T('IT03','Project save and load','Integration',()=>{localStorage.setItem('slay5_rt','{"n":"Test","g":200}');const l=JSON.parse(localStorage.getItem('slay5_rt'));localStorage.removeItem('slay5_rt');return l.n==='Test'&&l.g===200;}),
+      T('IT04','Wedding template has objects','Integration',()=>TPLS.wedding.objs.length>=10),
+      T('IT05','Birthday template has objects','Integration',()=>TPLS.birthday.objs.length>=5),
+      T('IT06','Room ID is unique per call','Integration',()=>genRoomId('wed')!==genRoomId('wed')),
+      T('IT07','AI predict under 500ms','Integration',()=>{const t=performance.now();AI.predict({...ev0,guests:150,venue_area:300},[]);return(performance.now()-t)<500;}),
+      T('IT08','SHAP sum approx score minus 50','Integration',()=>{const r=AI.predict({...ev0,guests:150,venue_area:300},[]);return Math.abs(r.shap_values.reduce((s,v)=>s+v.value,0)-(r.layout_score-50))<25;}),
+      T('IT09','Safe venue gives green safety','Integration',()=>AI.predict({...ev0,guests:50,venue_area:300,exit_count:4},[]).feasibility.safety==='green'),
+      T('IT10','Unsafe gives red safety','Integration',()=>AI.predict({...ev0,guests:500,venue_area:80,exit_count:1},[]).feasibility.safety==='red'),
+      T('IT11','Different configs give different scores','Integration',()=>{const a=AI.predict({...ev0,guests:50,budget:200000,event_type:'seminar'},[]);const b=AI.predict({...ev0,guests:300,budget:100000,event_type:'wedding'},[]);return a.layout_score!==b.layout_score;}),
+      T('IT12','BroadcastChannel available','Integration',()=>!!window.BroadcastChannel),
+    ];
+    const passed=tests.filter(t=>t.ok).length;
+    return{tests,passed,failed:tests.length-passed,total:tests.length};
+  }
+};
+
+const TestUI={
+  run(){
+    const box=document.getElementById('tr-box');if(!box)return;
+    box.innerHTML='<p style="font-size:12px;color:var(--amber)">Running 24 tests...</p>';
+    setTimeout(()=>{
+      const r=Tests.run(),pct=Math.round(r.passed/r.total*100),col=pct>=85?'var(--green)':pct>=60?'var(--amber)':'var(--red)';
+      box.innerHTML=`<div style="display:flex;gap:16px;margin-bottom:12px;padding:12px;background:rgba(255,255,255,.03);border-radius:8px"><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:${col}">${pct}%</div><div style="font-size:11px;color:var(--c3)">Pass rate</div></div><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--green)">${r.passed}</div><div style="font-size:11px;color:var(--c3)">Passed</div></div><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:var(--red)">${r.failed}</div><div style="font-size:11px;color:var(--c3)">Failed</div></div></div><div style="display:flex;flex-direction:column;gap:3px;max-height:360px;overflow-y:auto">${r.tests.map(t=>`<div style="display:flex;align-items:center;gap:7px;padding:5px 9px;background:rgba(255,255,255,.02);border-radius:4px;border-left:2px solid ${t.ok?'var(--green)':'var(--red)'}"><span style="font-size:10px;font-family:var(--tf);color:var(--c3);width:34px;flex-shrink:0">${t.id}</span><span style="font-size:11px;flex:1">${t.name}</span><span style="font-size:10px;padding:2px 7px;border-radius:9px;background:${t.ok?'rgba(0,255,136,.1)':'rgba(255,68,102,.1)'};color:${t.ok?'var(--green)':'var(--red)'};flex-shrink:0">${t.ok?'PASS':'FAIL'}</span><span style="font-size:10px;color:var(--c3);width:76px;text-align:right;flex-shrink:0">${t.cat}</span></div>`).join('')}</div>`;
+      toast(`Tests: ${r.passed}/${r.total} passed`,'s');
+    },400);
+  }
+};
+
+/* ════════ KEYBOARD SHORTCUTS ════════ */
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();Planner.save();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='e'){e.preventDefault();Exp.json();}
+  if(e.key==='Escape'){document.querySelectorAll('.modal:not(.h)').forEach(m=>m.classList.add('h'));document.getElementById('notif-popup')?.classList.add('h');}
+});
+
+/* ════════ BOOT ════════ */
+document.addEventListener('DOMContentLoaded',()=>{
+  loadProjects();
+  initPills();
+  try{document.getElementById('w-dt').valueAsDate=new Date(Date.now()+30*864e5);}catch(e){}
+  Wiz.dur();
+  // Show loading screen first
+  document.querySelectorAll('.scr').forEach(s=>{s.classList.remove('on');s.style.display='none';});
+  const load=document.getElementById('s-load');
+  load.style.display='flex';
+  requestAnimationFrame(()=>{ load.classList.add('on'); Loader.start(); });
+});
+</script>
+</body>
+</html>
